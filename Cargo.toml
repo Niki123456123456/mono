@@ -5,7 +5,9 @@ resolver = "2"
 [workspace.dependencies]
 egui = "0.31.1"
 egui_plot = "0.32.1"
-egui_extras = "0.31.1"
+egui_extras = { version = "0.31.1", features = [
+    "syntect",  
+] }
 egui_dock = "0.16.0"
 egui-notify = "0.19.0"
 ehttp = "0.5.0"
