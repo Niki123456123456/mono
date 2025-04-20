@@ -1,264 +1,12 @@
 use egui::Ui;
 use egui_plot::Legend;
 
-#[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    let mut native_options = eframe::NativeOptions::default();
-    native_options.viewport =
-        egui::ViewportBuilder::default().with_inner_size(egui::vec2(1200.0, 700.0));
-    eframe::run_native(
-        "forecasting",
-        native_options,
-        Box::new(|cc| Ok(Box::new(App::new(cc)))),
-    )
-    .unwrap();
-}
-
-#[cfg(target_arch = "wasm32")]
-fn main() {
-    use eframe::wasm_bindgen::JsCast as _;
-
-    let web_options = eframe::WebOptions::default();
-
-    wasm_bindgen_futures::spawn_local(async {
-        let document = web_sys::window()
-            .expect("No window")
-            .document()
-            .expect("No document");
-
-        let canvas = document
-            .get_element_by_id("the_canvas_id")
-            .expect("Failed to find the_canvas_id")
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .expect("the_canvas_id was not a HtmlCanvasElement");
-
-        let start_result = eframe::WebRunner::new()
-            .start(
-                canvas,
-                web_options,
-                Box::new(|cc| Ok(Box::new(App::new(cc)))),
-            )
-            .await;
-
-        // Remove the loading text and spinner:
-        if let Some(loading_text) = document.get_element_by_id("loading_text") {
-            match start_result {
-                Ok(_) => {
-                    loading_text.remove();
-                }
-                Err(e) => {
-                    loading_text.set_inner_html(
-                        "<p> The app has crashed. See the developer console for details. </p>",
-                    );
-                    panic!("Failed to start eframe: {e:?}");
-                }
-            }
-        }
-    });
-}
-
-
-pub struct DemandSource {
-    pub name: String,
-    pub demand: Vec<f64>,
-}
-
-impl DemandSource {
-    pub fn new(name: impl Into<String>, demand: Vec<f64>) -> Self {
-        Self {
-            name: name.into(),
-            demand,
-        }
-    }
-}
-
-pub struct ForecastMethod {
-    pub result: ForecastResult,
-    pub name: &'static str,
-    pub method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
-}
-
-pub struct ForecastResult {
-    pub forecast: Vec<f64>,
-    pub err: Vec<f64>,
-    pub bias_abs: f64,
-    pub bias_rel: f64,
-    pub mape: f64,
-    pub mae: f64,
-    pub mae_rel: f64,
-    pub rmse: f64,
-    pub rmse_rel: f64,
-}
-
-impl ForecastResult {
-    pub fn new(
-        method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
-        demand: &Vec<f64>,
-        parameters: &ForecastParameters,
-    ) -> Self {
-        let forecast = (method)(demand, parameters);
-        let mut err = vec![];
-        for i in 0..forecast.len().min(demand.len()) {
-            err.push(forecast[i] - demand[i]);
-        }
-        let results: Vec<_> = demand
-            .clone()
-            .into_iter()
-            .zip(err.clone())
-            .filter(|(x, y)| !x.is_nan() && !y.is_nan())
-            .collect();
-
-        let demad: Vec<_> = results.iter().map(|x| x.0).collect();
-        let err: Vec<_> = results.iter().map(|x| x.1).collect();
-
-        let mape = results.iter().map(|x| x.1.abs() / x.0).sum::<f64>() / results.len() as f64;
-
-        let mae = results.iter().map(|x| x.1.abs()).sum::<f64>() / results.len() as f64;
-
-        let rmse = (results.iter().map(|x| x.1 * x.1).sum::<f64>() / results.len() as f64).sqrt();
-
-        let dem_ave = mean(&demad);
-        let bias_abs = mean(&err);
-        let bias_rel = bias_abs / dem_ave;
-        let mae_rel = mae / dem_ave;
-        let rmse_rel = rmse / dem_ave;
-        Self {
-            forecast,
-            err,
-            bias_rel,
-            bias_abs,
-            mape,
-            mae,
-            mae_rel,
-            rmse,
-            rmse_rel,
-        }
-    }
-}
-
-impl ForecastMethod {
-    pub fn new(
-        name: &'static str,
-        method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
-        demand: &Vec<f64>,
-        parameters: &ForecastParameters,
-    ) -> Self {
-        Self {
-            result: ForecastResult::new(method, demand, parameters),
-            name,
-            method,
-        }
-    }
-
-    pub fn update(&mut self, demand: &Vec<f64>, parameters: &ForecastParameters) {
-        self.result = ForecastResult::new(self.method, demand, parameters);
-    }
-}
-
-pub fn methods(demand: &Vec<f64>, parameters: &ForecastParameters) -> Vec<ForecastMethod> {
-    let mut methods = vec![];
-
-    methods.push(ForecastMethod::new(
-        "moving average",
-        &|demand, parameters| moving_average(demand, parameters.extra_periods, parameters.n),
-        demand,
-        parameters,
-    ));
-    methods.push(ForecastMethod::new(
-        "exp smooth",
-        &|demand, parameters| exp_smooth(demand, parameters.extra_periods, parameters.alpha),
-        demand,
-        parameters,
-    ));
-    methods.push(ForecastMethod::new(
-        "double exp smooth",
-        &|demand, parameters| {
-            double_exp_smooth(
-                demand,
-                parameters.extra_periods,
-                parameters.alpha,
-                parameters.beta,
-            )
-        },
-        demand,
-        parameters,
-    ));
-    methods.push(ForecastMethod::new(
-        "double exp smooth damped",
-        &|demand, parameters| {
-            double_exp_smooth_damped(
-                demand,
-                parameters.extra_periods,
-                parameters.alpha,
-                parameters.beta,
-                parameters.phi,
-            )
-        },
-        demand,
-        parameters,
-    ));
-    methods.push(ForecastMethod::new(
-        "triple exp smooth",
-        &|demand, parameters| {
-            triple_exp_smooth(
-                demand,
-                parameters.season_len,
-                parameters.extra_periods,
-                parameters.alpha,
-                parameters.beta,
-                parameters.phi,
-                parameters.gamma,
-            )
-        },
-        demand,
-        parameters,
-    ));
-
-    return methods;
-}
-
-pub struct ForecastParameters {
-    pub extra_periods: usize,
-    pub season_len: usize,
-    pub n: usize,
-    pub alpha: f64,
-    pub beta: f64,
-    pub phi: f64,
-    pub gamma: f64,
-}
-
-impl Default for ForecastParameters {
-    fn default() -> Self {
-        Self {
-            extra_periods: 10,
-            n: 5,
-            season_len: 12,
-            alpha: 0.4,
-            beta: 0.4,
-            phi: 0.9,
-            gamma: 0.3,
-            // season_len: 4,
-            // alpha: 0.8,
-            // beta: 0.1,
-            // phi: 1.0,
-            // gamma: 0.4,
-        }
-    }
-}
-
-pub struct App {
-    parameters: ForecastParameters,
-    forecasts: Vec<ForecastMethod>,
-    sources: Vec<DemandSource>,
-    source_id: usize,
-    show_err: bool,
-}
-
-impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let parameters = ForecastParameters::default();
+    common::app::run("tool", |cc| {
+        let mut parameters = ForecastParameters::default();
 
         let mut sources = vec![];
+        let mut source_id = 0;
 
         let mut unemployed: Vec<f64> = vec![
             2_967_080.0,
@@ -499,76 +247,47 @@ impl App {
             ],
         ));
 
-        
+        let mut forecasts = methods(&sources[0].demand, &parameters);
 
-        let forecasts = methods(&sources[0].demand, &parameters);
+        let mut show_err = false;
 
-        return App {
-            sources,
-            parameters,
-            forecasts,
-            show_err: false,
-            source_id: 0,
-        };
-    }
-}
+        return Box::new(move |ctx| {
+            let ui = ctx.ui;
 
-pub fn slider_u(ui: &mut Ui, value: &mut usize, text: &str) -> bool {
-    let mut temp = *value;
-    ui.add(egui::Slider::new(&mut temp, 1..=12).text(text));
-    if temp != *value {
-        *value = temp;
-        return true;
-    }
-    false
-}
-pub fn slider_f(ui: &mut Ui, value: &mut f64, text: &str) -> bool {
-    let mut temp = *value;
-    ui.add(egui::Slider::new(&mut temp, 0.0..=1.).text(text));
-    if temp != *value {
-        *value = temp;
-        return true;
-    }
-    false
-}
-
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     let mut changed = false;
-                    changed |= slider_u(ui, &mut self.parameters.extra_periods, "extra periods");
-                    changed |= slider_u(ui, &mut self.parameters.season_len, "season length");
-                    changed |= slider_u(ui, &mut self.parameters.n, "n");
-                    changed |= slider_f(ui, &mut self.parameters.alpha, "alpha");
-                    changed |= slider_f(ui, &mut self.parameters.beta, "beta");
-                    changed |= slider_f(ui, &mut self.parameters.phi, "phi");
-                    changed |= slider_f(ui, &mut self.parameters.gamma, "gamma");
+                    changed |= slider_u(ui, &mut parameters.extra_periods, "extra periods");
+                    changed |= slider_u(ui, &mut parameters.season_len, "season length");
+                    changed |= slider_u(ui, &mut parameters.n, "n");
+                    changed |= slider_f(ui, &mut parameters.alpha, "alpha");
+                    changed |= slider_f(ui, &mut parameters.beta, "beta");
+                    changed |= slider_f(ui, &mut parameters.phi, "phi");
+                    changed |= slider_f(ui, &mut parameters.gamma, "gamma");
 
-                    ui.checkbox(&mut self.show_err, "show err");
+                    ui.checkbox(&mut show_err, "show err");
 
                     egui::ComboBox::from_label("demand source")
-                        .selected_text(self.sources[self.source_id].name.clone())
+                        .selected_text(sources[source_id].name.clone())
                         .show_ui(ui, |ui| {
-                            for (i, source) in self.sources.iter().enumerate() {
-                                let mut i_temp = self.source_id;
+                            for (i, source) in sources.iter().enumerate() {
+                                let mut i_temp = source_id;
                                 ui.selectable_value(&mut i_temp, i, source.name.clone());
-                                if i_temp != self.source_id {
-                                    self.source_id = i_temp;
+                                if i_temp != source_id {
+                                    source_id = i_temp;
                                     changed = true;
                                 }
                             }
                         });
 
                     if changed {
-                        for m in self.forecasts.iter_mut() {
-                            m.update(&self.sources[self.source_id].demand, &self.parameters);
+                        for m in forecasts.iter_mut() {
+                            m.update(&sources[source_id].demand, &parameters);
                         }
                     }
                 });
                 ui.vertical(|ui| {
-                    for m in self.forecasts.iter() {
+                    for m in forecasts.iter() {
                         ui.label(format!("{}", m.name));
                         ui.label(format!(
                             "Bias {:.0} {:.2} % MAPE {:.2} % MEA {:.0} {:.2} % RSME {:.0} {:.2} %",
@@ -589,10 +308,10 @@ impl eframe::App for App {
                 .show(ui, |plot_ui| {
                     plot_ui.line(egui_plot::Line::new(
                         "demand",
-                        egui_plot::PlotPoints::from_ys_f64(&self.sources[self.source_id].demand),
+                        egui_plot::PlotPoints::from_ys_f64(&sources[source_id].demand),
                     ));
-                    for forcast in self.forecasts.iter() {
-                        if self.show_err {
+                    for forcast in forecasts.iter() {
+                        if show_err {
                             plot_ui.line(egui_plot::Line::new(
                                 format!("{} err", forcast.name),
                                 forcast.result.err[1..]
@@ -613,8 +332,216 @@ impl eframe::App for App {
                         }
                     }
                 });
+
         });
+    });
+}
+
+pub struct DemandSource {
+    pub name: String,
+    pub demand: Vec<f64>,
+}
+
+impl DemandSource {
+    pub fn new(name: impl Into<String>, demand: Vec<f64>) -> Self {
+        Self {
+            name: name.into(),
+            demand,
+        }
     }
+}
+
+pub struct ForecastMethod {
+    pub result: ForecastResult,
+    pub name: &'static str,
+    pub method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
+}
+
+pub struct ForecastResult {
+    pub forecast: Vec<f64>,
+    pub err: Vec<f64>,
+    pub bias_abs: f64,
+    pub bias_rel: f64,
+    pub mape: f64,
+    pub mae: f64,
+    pub mae_rel: f64,
+    pub rmse: f64,
+    pub rmse_rel: f64,
+}
+
+impl ForecastResult {
+    pub fn new(
+        method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
+        demand: &Vec<f64>,
+        parameters: &ForecastParameters,
+    ) -> Self {
+        let forecast = (method)(demand, parameters);
+        let mut err = vec![];
+        for i in 0..forecast.len().min(demand.len()) {
+            err.push(forecast[i] - demand[i]);
+        }
+        let results: Vec<_> = demand
+            .clone()
+            .into_iter()
+            .zip(err.clone())
+            .filter(|(x, y)| !x.is_nan() && !y.is_nan())
+            .collect();
+
+        let demad: Vec<_> = results.iter().map(|x| x.0).collect();
+        let err: Vec<_> = results.iter().map(|x| x.1).collect();
+
+        let mape = results.iter().map(|x| x.1.abs() / x.0).sum::<f64>() / results.len() as f64;
+
+        let mae = results.iter().map(|x| x.1.abs()).sum::<f64>() / results.len() as f64;
+
+        let rmse = (results.iter().map(|x| x.1 * x.1).sum::<f64>() / results.len() as f64).sqrt();
+
+        let dem_ave = mean(&demad);
+        let bias_abs = mean(&err);
+        let bias_rel = bias_abs / dem_ave;
+        let mae_rel = mae / dem_ave;
+        let rmse_rel = rmse / dem_ave;
+        Self {
+            forecast,
+            err,
+            bias_rel,
+            bias_abs,
+            mape,
+            mae,
+            mae_rel,
+            rmse,
+            rmse_rel,
+        }
+    }
+}
+
+impl ForecastMethod {
+    pub fn new(
+        name: &'static str,
+        method: &'static dyn Fn(&Vec<f64>, &ForecastParameters) -> Vec<f64>,
+        demand: &Vec<f64>,
+        parameters: &ForecastParameters,
+    ) -> Self {
+        Self {
+            result: ForecastResult::new(method, demand, parameters),
+            name,
+            method,
+        }
+    }
+
+    pub fn update(&mut self, demand: &Vec<f64>, parameters: &ForecastParameters) {
+        self.result = ForecastResult::new(self.method, demand, parameters);
+    }
+}
+
+pub fn methods(demand: &Vec<f64>, parameters: &ForecastParameters) -> Vec<ForecastMethod> {
+    let mut methods = vec![];
+
+    methods.push(ForecastMethod::new(
+        "moving average",
+        &|demand, parameters| moving_average(demand, parameters.extra_periods, parameters.n),
+        demand,
+        parameters,
+    ));
+    methods.push(ForecastMethod::new(
+        "exp smooth",
+        &|demand, parameters| exp_smooth(demand, parameters.extra_periods, parameters.alpha),
+        demand,
+        parameters,
+    ));
+    methods.push(ForecastMethod::new(
+        "double exp smooth",
+        &|demand, parameters| {
+            double_exp_smooth(
+                demand,
+                parameters.extra_periods,
+                parameters.alpha,
+                parameters.beta,
+            )
+        },
+        demand,
+        parameters,
+    ));
+    methods.push(ForecastMethod::new(
+        "double exp smooth damped",
+        &|demand, parameters| {
+            double_exp_smooth_damped(
+                demand,
+                parameters.extra_periods,
+                parameters.alpha,
+                parameters.beta,
+                parameters.phi,
+            )
+        },
+        demand,
+        parameters,
+    ));
+    methods.push(ForecastMethod::new(
+        "triple exp smooth",
+        &|demand, parameters| {
+            triple_exp_smooth(
+                demand,
+                parameters.season_len,
+                parameters.extra_periods,
+                parameters.alpha,
+                parameters.beta,
+                parameters.phi,
+                parameters.gamma,
+            )
+        },
+        demand,
+        parameters,
+    ));
+
+    return methods;
+}
+
+pub struct ForecastParameters {
+    pub extra_periods: usize,
+    pub season_len: usize,
+    pub n: usize,
+    pub alpha: f64,
+    pub beta: f64,
+    pub phi: f64,
+    pub gamma: f64,
+}
+
+impl Default for ForecastParameters {
+    fn default() -> Self {
+        Self {
+            extra_periods: 10,
+            n: 5,
+            season_len: 12,
+            alpha: 0.4,
+            beta: 0.4,
+            phi: 0.9,
+            gamma: 0.3,
+            // season_len: 4,
+            // alpha: 0.8,
+            // beta: 0.1,
+            // phi: 1.0,
+            // gamma: 0.4,
+        }
+    }
+}
+
+pub fn slider_u(ui: &mut Ui, value: &mut usize, text: &str) -> bool {
+    let mut temp = *value;
+    ui.add(egui::Slider::new(&mut temp, 1..=12).text(text));
+    if temp != *value {
+        *value = temp;
+        return true;
+    }
+    false
+}
+pub fn slider_f(ui: &mut Ui, value: &mut f64, text: &str) -> bool {
+    let mut temp = *value;
+    ui.add(egui::Slider::new(&mut temp, 0.0..=1.).text(text));
+    if temp != *value {
+        *value = temp;
+        return true;
+    }
+    false
 }
 
 fn moving_average(demand: &[f64], extra_periods: usize, n: usize) -> Vec<f64> {
