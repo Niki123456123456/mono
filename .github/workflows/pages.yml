@@ -12,27 +12,21 @@ jobs:
   build-github-pages:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # repo checkout
+      - uses: actions/checkout@v4
       - name: Setup toolchain for wasm
         run: |
           rustup update stable
           rustup default stable
           rustup set profile minimal
           rustup target add wasm32-unknown-unknown
-      - name: Rust Cache # cache the rust build artefacts
+      - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Download and install Trunk binary
         run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
-      - name: Build # build
-        # Environment $public_url resolves to the github project page.
-        # If using a user/organization page, remove the `${{ github.event.repository.name }}` part.
-        # using --public-url something will allow trunk to modify all the href paths like from favicon.ico to repo_name/favicon.ico .
-        # this is necessary for github pages where the site is deployed to username.github.io/repo_name and all files must be requested
-        # relatively as eframe_template/favicon.ico. if we skip public-url option, the href paths will instead request username.github.io/favicon.ico which
-        # will obviously return error 404 not found.
+      - name: Build
         run: cd ./crates/tool ; ../../trunk build --release --public-url $public_url --dist ../../gh-pages/tool
         env:
-          public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/tool"
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
