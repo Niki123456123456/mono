@@ -4,14 +4,17 @@ resolver = "2"
 
 [workspace.dependencies]
 egui = "0.31.1"
+egui_plot = "0.32.1"
+egui_extras = "0.31.1"
+egui_dock = "0.16.0"
+egui-notify = "0.19.0"
+ehttp = "0.5.0"
 eframe = { version = "0.31.1", default-features = false, features = [
     "default_fonts", 
     "glow",          
     "persistence",   
 ] }
-egui_plot = "0.32.1"
-egui_extras = "0.31.1"
-egui_dock = "0.16.0"
+regex = "1"
 common = { path = "./crates/common" }
 uuid = { version = "1", features = ["v4", "js"], default-features = false }
 urlencoding = "2.1"
@@ -20,9 +23,13 @@ sha2 = "0.10"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3.70" 
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.140"
+serde_yaml = "0.9.34"
 chrono = { version = "0.4.37", features = ["serde", "now"] }
 walkdir = "2.5.0"
 anyhow = "1.0.92"
 zip = { version = "2.2.0", default-features = false, features = ["deflate"]}
 zip-extract = { version = "0.2.1", default-features = false}
 clipboard = "0.5.0"
+futures = "0.3.31"
+ron = "0.10.1"

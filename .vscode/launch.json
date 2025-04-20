@@ -44,6 +44,17 @@
         "cargo": {
           "args": ["build", "--package", "mac-explorer"]
         }
+      },
+      {
+        "name": "deployboard",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/deployboard",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "cargo": {
+          "args": ["build", "--package", "deployboard"]
+        }
       }
     ],
   }

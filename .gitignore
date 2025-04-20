@@ -1,5 +1,2 @@
-# Mac stuff:
-.DS_Store
-
 target
 crates/*/dist
