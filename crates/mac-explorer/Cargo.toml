@@ -1,0 +1,22 @@
+[package]
+name = "mac-explorer"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.bundle]
+name = "mac-explorer"
+identifier = "com.niklasnordkamp.macexplorer"
+
+[dependencies]
+common = { workspace = true }
+egui = { workspace = true }
+eframe = { workspace = true }
+egui_dock = { workspace = true }
+egui_extras = { workspace = true }
+walkdir = { workspace = true }
+anyhow = { workspace = true }
+zip = { workspace = true }
+zip-extract = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+clipboard = { workspace = true }

@@ -33,6 +33,17 @@
         "cargo": {
           "args": ["build", "--package", "uptime"]
         }
+      },
+      {
+        "name": "mac-explorer",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/mac-explorer",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "cargo": {
+          "args": ["build", "--package", "mac-explorer"]
+        }
       }
     ],
   }
