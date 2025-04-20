@@ -22,6 +22,17 @@
         "cargo": {
           "args": ["build", "--package", "tool"]
         }
+      },
+      {
+        "name": "uptime",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/uptime",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "cargo": {
+          "args": ["build", "--package", "uptime"]
+        }
       }
     ],
   }

@@ -2,7 +2,7 @@ use egui::Ui;
 use egui_plot::Legend;
 
 fn main() {
-    common::app::run("tool", |cc| {
+    common::app::run("forecasting", |cc| {
         let mut parameters = ForecastParameters::default();
 
         let mut sources = vec![];

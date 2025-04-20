@@ -13,3 +13,5 @@ base64 = "0.22.1"
 sha2 = "0.10"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3.70" 
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4.37", features = ["serde", "now"] }

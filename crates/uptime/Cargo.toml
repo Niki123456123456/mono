@@ -1,0 +1,14 @@
+[package]
+name = "uptime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = { workspace = true }
+common = { workspace = true }
+serde = { workspace = true }
+chrono = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winnt", "winbase", "winreg"] }
+win-event-log = { git = "https://github.com/rustysec/win-event-log-rs" }
