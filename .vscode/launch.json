@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "forecasting",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/forecasting",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "cargo": {
+          "args": ["build", "--package", "forecasting"]
+        }
+      },
+      {
+        "name": "tool",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/tool",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "cargo": {
+          "args": ["build", "--package", "tool"]
+        }
+      }
+    ],
+  }
+  

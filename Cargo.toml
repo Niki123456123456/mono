@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+egui = "0.31.1"
+eframe = "0.31.1"
+egui_plot = "0.32.1"
+common = { path = "./crates/common" }
+uuid = { version = "1", features = ["v4", "js"], default-features = false }
+urlencoding = "2.1"
+base64 = "0.22.1"
+sha2 = "0.10"
+wasm-bindgen-futures = "0.4"
+web-sys = "0.3.70" 
