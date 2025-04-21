@@ -40,6 +40,8 @@ fn main() {
 
         let mut e = Arc::new( Mutex::new(MEvent::default()));
 
+        let mut motion_closure: Option<Closure<dyn FnMut(_)>> = None;
+
         return Box::new(move |ctx| {
 
             let ui = ctx.ui;
@@ -47,10 +49,13 @@ fn main() {
            
             if ui.button("start").clicked(){
                 request_device_motion_permission();
-                let value = e.clone();
-                let motion_closure = Closure::wrap(Box::new(move |event: DeviceMotionEvent| {
+                let e2 = e.clone();
+                let ctx2 = ui.ctx().clone();
+                motion_closure = Some( Closure::wrap(Box::new(move |event: DeviceMotionEvent| {
 
-                    let mut e  = value.lock();
+                    ctx2.request_repaint();
+
+                    let mut e  = e2.lock();
                     
                     if let Some(acc_g) = event.acceleration_including_gravity() {
                         log_f64("Accelerometer_gx", acc_g.x());
@@ -78,28 +83,33 @@ fn main() {
                     }
             
                     log("Motion event triggered");
-                }) as Box<dyn FnMut(_)>);
+                }) as Box<dyn FnMut(_)>));
+                
+                
                 window
-                    .add_event_listener_with_callback("devicemotion", motion_closure.as_ref().unchecked_ref()).unwrap();
-                motion_closure.forget();
+                    .add_event_listener_with_callback("devicemotion", motion_closure.as_ref().unwrap().as_ref().unchecked_ref()).unwrap();
+                // motion_closure.forget();
             
-                let orientation_closure = Closure::wrap(Box::new(move |event: DeviceOrientationEvent| {
-                    log_f64("Orientation_a", event.alpha());
-                    log_f64("Orientation_b", event.beta());
-                    log_f64("Orientation_g", event.gamma());
+                // let orientation_closure = Closure::wrap(Box::new(move |event: DeviceOrientationEvent| {
+                //     log_f64("Orientation_a", event.alpha());
+                //     log_f64("Orientation_b", event.beta());
+                //     log_f64("Orientation_g", event.gamma());
             
-                    log("Orientation event triggered");
-                }) as Box<dyn FnMut(_)>);
-                window.add_event_listener_with_callback(
-                    "deviceorientation",
-                    orientation_closure.as_ref().unchecked_ref(),
-                ).unwrap();
-                orientation_closure.forget();
+                //     log("Orientation event triggered");
+                // }) as Box<dyn FnMut(_)>);
+                // window.add_event_listener_with_callback(
+                //     "deviceorientation",
+                //     orientation_closure.as_ref().unchecked_ref(),
+                // ).unwrap();
+                // orientation_closure.forget();
             }
 
             {
                 let e = e.lock();
                 ui.label(format!("interval: {:?}", e.interval));
+                ui.label(format!("x: {:?}", e.x));
+                ui.label(format!("y: {:?}", e.y));
+                ui.label(format!("z: {:?}", e.z));
             }
 
             
