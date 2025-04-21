@@ -29,6 +29,10 @@ jobs:
         run: cd ./crates/forecasting ; ../../trunk build --release --public-url $public_url --dist ../../gh-pages/forecasting
         env:
           public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/forecasting"
+      - name: Build pushuptracker
+        run: cd ./crates/pushuptracker ; ../../trunk build --release --public-url $public_url --dist ../../gh-pages/pushuptracker
+        env:
+          public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pushuptracker"
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
