@@ -21,6 +21,8 @@ pub struct AppData {
     #[serde(skip)]
     pub drag_paths: Option<(String, Vec<(String, String)>)>,
     pub drop_path: Option<String>,
+    #[serde(skip)]
+    pub need_save : bool,
 }
 
 fn show_sorting_header(
@@ -95,6 +97,7 @@ impl egui_dock::TabViewer for AppData {
             if ui.button("★").clicked() {
                 if !self.favorites.contains(&tab.path) {
                     self.favorites.push(tab.path.clone());
+                    self.need_save = true;
                 }
             }
             if ui.button("⬅").clicked() {}

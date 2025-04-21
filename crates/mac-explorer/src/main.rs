@@ -49,26 +49,25 @@ fn main() {
             .set_focused_node_and_surface((SurfaceIndex(0), NodeIndex(0)));
         app.data.actions = actions();
 
-        let mut data = app.data;
-        let mut tabs = app.tabs;
-        let mut latest_tab_id = app.latest_tab_id;
-        return Box::new(move |ctx| {
-            let ctx = ctx.ui.ctx();
+        return Box::new(move |mut ctx| {
+            app.data.need_save = false;
 
-            if tabs.iter_all_tabs().count() == 0 {
-                tabs = DockState::new(vec![Tab::new(
-                    data.favorites.first().unwrap_or(&"/".to_string()),
-                    egui::Id::new(latest_tab_id),
+            let egui_ctx = ctx.ui.ctx().clone();
+
+            if app.tabs.iter_all_tabs().count() == 0 {
+                app.tabs = DockState::new(vec![Tab::new(
+                    app.data.favorites.first().unwrap_or(&"/".to_string()),
+                    egui::Id::new(app.latest_tab_id),
                 )]);
-                tabs
+                app.tabs
                 .set_focused_node_and_surface((SurfaceIndex(0), NodeIndex(0)));
             }
     
-            egui::SidePanel::left("favorites_tab").show(ctx, |ui| {
+            egui::SidePanel::left("favorites_tab").show(&egui_ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.heading("favorites");
                     let mut to_remove = None;
-                    for (i, favorite) in data.favorites.iter().enumerate() {
+                    for (i, favorite) in app.data.favorites.iter().enumerate() {
                         let path = Path::new(favorite);
                         let file_name = path
                             .file_name()
@@ -79,7 +78,7 @@ fn main() {
                             .selectable(false)
                             .ui(ui);
                         if resp.clicked() {
-                            let tab = tabs.find_active_focused();
+                            let tab = app.tabs.find_active_focused();
                             if let Some((rect, tab)) = tab {
                                 tab.refresh(favorite);
                             }
@@ -97,34 +96,35 @@ fn main() {
                         });
                     }
                     if let Some(to_remove) = to_remove {
-                        data.favorites.remove(to_remove);
+                        app.data.favorites.remove(to_remove);
+                        ctx.save(&app);
                     }
                 });
             });
-            egui::CentralPanel::default().show(ctx, |ui| {
-                DockArea::new(&mut tabs)
+            egui::CentralPanel::default().show(&egui_ctx, |ui| {
+                DockArea::new(&mut app.tabs)
                     .show_add_buttons(true)
                     .style({
-                        let mut style = Style::from_egui(ctx.style().as_ref());
+                        let mut style = Style::from_egui(egui_ctx.style().as_ref());
                         style.tab_bar.fill_tab_bar = true;
                         style
                     })
-                    .show(ctx, &mut data);
+                    .show(&egui_ctx, &mut app.data);
     
-                latest_tab_id += 1;
-                data.added_nodes.drain(..).for_each(|(surface, node)| {
-                    tabs.set_focused_node_and_surface((surface, node));
-                    tabs.push_to_focused_leaf(Tab::new(
-                        data.favorites.first().unwrap_or(&"/".to_string()),
-                        egui::Id::new(latest_tab_id),
+                    app.latest_tab_id += 1;
+                    app.data.added_nodes.drain(..).for_each(|(surface, node)| {
+                        app.tabs.set_focused_node_and_surface((surface, node));
+                        app.tabs.push_to_focused_leaf(Tab::new(
+                            app.data.favorites.first().unwrap_or(&"/".to_string()),
+                        egui::Id::new(app.latest_tab_id),
                     ));
                 });
             });
     
-            if let Some((source_path, files)) = &data.drag_paths {
-                if let Some(dest_path) = &data.drop_path {
+            if let Some((source_path, files)) = &app.data.drag_paths {
+                if let Some(dest_path) = &app.data.drop_path {
                     if source_path != dest_path {
-                        let command = ctx.input(|i| i.modifiers.command);
+                        let command = egui_ctx.input(|i| i.modifiers.command);
                         for (path, file_name) in files.iter() {
                             let target = Path::new(dest_path).join(file_name);
                             if command {
@@ -139,14 +139,18 @@ fn main() {
                             }
                         }
                     }
-                    for ((_, _), tab) in tabs.iter_all_tabs_mut() {
+                    for ((_, _), tab) in app.tabs.iter_all_tabs_mut() {
                         tab.refresh_hard(tab.path.clone());
                     }
-                    data.drag_paths = None;
-                    data.drop_path = None;
+                    app.data.drag_paths = None;
+                    app.data.drop_path = None;
                 }
             }
     
+
+            if app.data.need_save {
+                ctx.save(&app);
+            }
         });
     });
 }
