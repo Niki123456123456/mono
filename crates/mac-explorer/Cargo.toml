@@ -3,9 +3,9 @@ name = "mac-explorer"
 version = "0.1.0"
 edition = "2021"
 
-[package.metadata.bundle]
+[[bin]]
 name = "mac-explorer"
-identifier = "com.niklasnordkamp.macexplorer"
+path = "src/main.rs"
 
 [dependencies]
 common = { workspace = true }

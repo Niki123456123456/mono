@@ -1,0 +1,65 @@
+name: Mac
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write 
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+    steps:
+            - uses: actions/checkout@master
+            - uses: actions-rs/toolchain@v1.0.1
+              with:
+                toolchain: stable
+                target: aarch64-apple-darwin
+                override: true
+        
+            - uses: actions-rs/cargo@v1
+              with:
+                use-cross: true
+                command: build
+                args: --verbose --release --target=aarch64-apple-darwin
+
+            - name: Install cargo-bundle
+              run: cargo install cargo-bundle
+
+            - name: Create folder
+              run: mkdir bundle
+            
+            - name: Bundle deployboard
+              run: |
+                cargo bundle --release --bin deployboard
+                mkdir -p bundle/deployboard
+                mv target/release/bundle/osx/deployboard.app/ bundle/deployboard/deployboard.app/
+                ln -s /Applications bundle/deployboard/Applications
+                hdiutil create -volname "deployboard" -srcfolder bundle/deployboard -ov -format UDZO bundle/deployboard.dmg
+
+            - name: Bundle uptime
+              run: |
+                cargo bundle --release --bin uptime
+                mkdir -p bundle/uptime
+                mv target/release/bundle/osx/uptime.app/ bundle/uptime/uptime.app/
+                ln -s /Applications bundle/uptime/Applications
+                hdiutil create -volname "uptime" -srcfolder bundle/uptime -ov -format UDZO bundle/uptime.dmg
+
+            - name: Bundle mac-explorer
+              run: |
+                cargo bundle --release --bin mac-explorer
+                mkdir -p bundle/mac-explorer
+                mv target/release/bundle/osx/mac-explorer.app/ bundle/mac-explorer/mac-explorer.app/
+                ln -s /Applications bundle/mac-explorer/Applications
+                hdiutil create -volname "mac-explorer" -srcfolder bundle/mac-explorer -ov -format UDZO bundle/mac-explorer.dmg
+          
+            - uses: svenstaro/upload-release-action@v2
+              name: Upload bundle to release
+              with:
+                repo_token: ${{ secrets.GITHUB_TOKEN }}
+                file: bundle/*.dmg
+                asset_name: ""
+                tag: ${{ github.ref }}
+                prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+                overwrite: true

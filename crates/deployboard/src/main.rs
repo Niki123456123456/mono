@@ -17,6 +17,7 @@ mod yaml;
 use common::RemoveWhere;
 use egui::{RichText, Widget};
 
+// cargo bundle --bin deployboard ; ln -s /Applications target/release/bundle/osx/Applications ; hdiutil create -volname "deployboard" -srcfolder target/release/bundle/osx -ov -format UDZO deployboard.dmg
 fn main() {
     common::app::run("deployboard", |cc| {
         let mut app = App::new(cc);

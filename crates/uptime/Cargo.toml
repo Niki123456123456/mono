@@ -3,6 +3,10 @@ name = "uptime"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "uptime"
+path = "src/main.rs"
+
 [dependencies]
 egui = { workspace = true }
 common = { workspace = true }

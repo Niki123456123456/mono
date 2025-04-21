@@ -1,2 +1,5 @@
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg=web_sys_unstable_apis"]
+
+[build]
+rustflags = ["-A", "unused_variables", "-A", "unused_mut", "-A", "unused_imports", "-A", "deprecated", "-A", "non_snake_case"]

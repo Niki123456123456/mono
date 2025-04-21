@@ -3,6 +3,22 @@ name = "deployboard"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "deployboard"
+path = "src/main.rs"
+
+[package.metadata.bundle.bin.deployboard]
+name = "deployboard"
+identifier = "com.niklasnordkamp.deployboard"
+
+[package.metadata.bundle.bin.uptime]
+name = "uptime"
+identifier = "com.niklasnordkamp.uptime"
+
+[package.metadata.bundle.bin.mac-explorer]
+name = "mac-explorer"
+identifier = "com.niklasnordkamp.macexplorer"
+
 [dependencies]
 common = { workspace = true }
 egui = { workspace = true }
