@@ -55,11 +55,31 @@ jobs:
                 hdiutil create -volname "mac-explorer" -srcfolder bundle/mac-explorer -ov -format UDZO bundle/mac-explorer.dmg
           
             - uses: svenstaro/upload-release-action@v2
-              name: Upload bundle to release
+              name: Upload deployboard
               with:
                 repo_token: ${{ secrets.GITHUB_TOKEN }}
-                file: bundle/*.dmg
-                asset_name: ""
+                file: bundle/deployboard.dmg
+                asset_name: deployboard.dmg
+                tag: ${{ github.ref }}
+                prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+                overwrite: true
+            
+            - uses: svenstaro/upload-release-action@v2
+              name: Upload uptime
+              with:
+                repo_token: ${{ secrets.GITHUB_TOKEN }}
+                file: bundle/uptime.dmg
+                asset_name: uptime.dmg
+                tag: ${{ github.ref }}
+                prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+                overwrite: true
+            
+            - uses: svenstaro/upload-release-action@v2
+              name: Upload mac-explorer
+              with:
+                repo_token: ${{ secrets.GITHUB_TOKEN }}
+                file: bundle/mac-explorer.dmg
+                asset_name: mac-explorer.dmg
                 tag: ${{ github.ref }}
                 prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
                 overwrite: true
