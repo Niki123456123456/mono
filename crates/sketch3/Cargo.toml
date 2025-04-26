@@ -1,0 +1,12 @@
+[package]
+name = "sketch3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = { workspace = true }
+common = { workspace = true }
+three-d = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+egui_glow = { workspace = true }

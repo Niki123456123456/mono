@@ -5,6 +5,7 @@ resolver = "2"
 [workspace.dependencies]
 egui = "0.31.1"
 egui_plot = "0.32.1"
+egui_glow = "0.31.1"
 egui_extras = { version = "0.31.1", features = [
     "syntect",  
 ] }
@@ -35,3 +36,4 @@ zip-extract = { version = "0.2.1", default-features = false}
 clipboard = "0.5.0"
 futures = "0.3.31"
 ron = "0.10.1"
+three-d = { git = "https://github.com/asny/three-d.git" }
