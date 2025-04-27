@@ -5,13 +5,8 @@ use std::{
 
 use three_d::*;
 
-pub mod controls;
-
 fn main() {
-    common::app::run("sketch3", |cc| {
-        let gl = cc.gl.as_ref().unwrap().clone();
-
-        let three_d = three_d::Context::from_gl_context(gl).unwrap();
+    run("sketch3", |c| {
 
         let mut camera = Camera::new_perspective(
             Viewport::new_at_origo(512, 512),
@@ -23,10 +18,12 @@ fn main() {
             1000.0,
         );
 
+        let mut control  = OrbitControl::new(camera.target(), 1.0, 100.0);
+
         let mut cube = Gm::new(
-            Mesh::new(&three_d, &CpuMesh::cube()),
+            Mesh::new(&c.ctx, &CpuMesh::cube()),
             PhysicalMaterial::new_transparent(
-                &three_d,
+                &c.ctx,
                 &CpuMaterial {
                     albedo: Srgba {
                         r: 0,
@@ -38,114 +35,89 @@ fn main() {
                 },
             ),
         );
-        let light0 = DirectionalLight::new(&three_d, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
-        let light1 = DirectionalLight::new(&three_d, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
+        let light0 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
+        let light1 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
+        
+        return Box::new(move |mut ctx| {
+            let mut panel_width = 0.0;
 
-        let mut control = make_static_mut(controls::OrbitControl::new(camera.target(), 1.0, 100.0));
-
-        let camera = make_static_mut(camera);
-        let cube = make_static(cube);
-        let light0 = make_static(light0);
-        let light1 = make_static(light1);
-
-        return Box::new(move |ctx| {
-            let ui = ctx.ui;
-
-            test(ui, &three_d, ui.available_size(), |r| {
-                let mut camera = camera.lock().unwrap();
-                let mut control = control.lock().unwrap();
-                control.handle_events(camera.deref_mut(), &r.ctx);
-                camera.set_viewport(r.viewport);
-                cube.render(camera.deref(), &[light0, light1]);
+            ctx.update_ui(|ctx|{
+                use three_d::egui::*;
+                SidePanel::left("side_panel").show(ctx, |ui| {
+                    ui.heading("Hello World");
+                });
+                panel_width = ctx.used_rect().width();
             });
+
+            let viewport = Viewport {
+                x: (panel_width * ctx.frame_input.device_pixel_ratio) as i32,
+                y: 0,
+                width: ctx.frame_input.viewport.width
+                    - (panel_width * ctx.frame_input.device_pixel_ratio) as u32,
+                height: ctx.frame_input.viewport.height,
+            };
+
+            camera.set_viewport(viewport);
+            control.handle_events(&mut camera, &mut ctx.frame_input.events);
+    
+            ctx.frame_input
+                .screen()
+                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                .render(
+                    &camera,cube.into_iter(),
+                    &[&light0, &light1],
+                ).write(|| {
+                    return ctx.gui.render();
+                });
+            
         });
     });
 }
-pub struct RenderContext {
-    pub viewport: Viewport,
-    pub ctx: egui::Context,
-}
 
-fn make_static_mut<T>(value: T) -> &'static std::sync::Mutex<T> {
-    Box::leak(Box::new(std::sync::Mutex::new(value)))
-}
+pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3d)>) {
+    let window = Window::new(WindowSettings {
+        title: app_name.to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    let context = window.gl();
 
-fn make_static<T>(value: T) -> &'static T {
-    Box::leak(Box::new(value))
-}
+    let mut gui = three_d::GUI::new(&context);
 
-fn test(
-    ui: &mut egui::Ui,
-    three_d: &three_d::Context,
-    desired_size: egui::Vec2,
-    render: impl FnOnce(RenderContext) + Send + Sync + 'static,
-) {
-    let ctx = ui.ctx().clone();
-    let render: PaintCallback<RenderContext> = render.into();
-    let (rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::drag());
-    let three_d = three_d.clone();
-    let callback = egui::PaintCallback {
-        rect,
-        callback: std::sync::Arc::new(egui_glow::CallbackFn::new(move |info, painter| {
-            let ctx = ctx.clone();
-            let viewport = info.viewport_in_pixels();
-            let viewport = Viewport {
-                x: viewport.left_px,
-                y: viewport.from_bottom_px,
-                width: viewport.width_px.abs() as u32,
-                height: viewport.height_px.abs() as u32,
-            };
-
-            let clip_rect = info.clip_rect_in_pixels();
-            three_d.set_scissor(ScissorBox {
-                x: clip_rect.left_px,
-                y: clip_rect.from_bottom_px,
-                width: clip_rect.width_px.abs() as u32,
-                height: clip_rect.height_px.abs() as u32,
-            });
-
-            let render_context = RenderContext { viewport, ctx };
-
-            (render.as_fn())(render_context);
-        })),
+    let ctx = CreateContext3d{
+        ctx : context.clone(),
     };
-    ui.painter().add(callback);
+
+    let mut update = (f)(ctx);
+
+    window.render_loop(move |mut frame_input| {
+        let ctx = Context3d {
+            frame_input,
+            gui: &mut gui,
+        };
+
+        (update)(ctx);
+        return FrameOutput::default();
+    });
 }
 
-struct PaintCallback<T> {
-    inner: Arc<std::sync::Mutex<Option<Box<dyn FnOnce(T) + Send + Sync>>>>,
+pub struct CreateContext3d{
+    pub ctx : Context,
 }
 
-impl<T: 'static> Clone for PaintCallback<T> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
+pub struct Context3d<'a> {
+    pub frame_input: FrameInput,
+    pub gui: &'a mut GUI,
 }
 
-impl<T: 'static, X> From<X> for PaintCallback<T>
-where
-    X: FnOnce(T) + Send + Sync + 'static,
-{
-    fn from(value: X) -> Self {
-        PaintCallback::new(value)
-    }
-}
-
-impl<T: 'static> PaintCallback<T> {
-    pub fn new(f: impl FnOnce(T) + Send + Sync + 'static) -> Self {
-        Self {
-            inner: Arc::new(std::sync::Mutex::new(Some(Box::new(f)))),
-        }
-    }
-
-    pub fn as_fn(&self) -> impl Fn(T) + Sync + Send + 'static {
-        let inner = self.inner.clone();
-        move |t| {
-            if let Some(f) = inner.lock().unwrap().take() {
-                f(t);
-            }
-        }
+impl<'a> Context3d<'a> {
+    pub fn update_ui(&mut self, callback: impl FnOnce(&egui::Context)) {
+        self.gui.update(
+            &mut self.frame_input.events,
+            self.frame_input.accumulated_time,
+            self.frame_input.viewport,
+            self.frame_input.device_pixel_ratio,
+            callback,
+        );
     }
 }

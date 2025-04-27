@@ -471,7 +471,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "egui",
+ "egui 0.31.1",
  "futures",
  "ron 0.10.1",
  "serde",
@@ -605,7 +605,7 @@ dependencies = [
  "chrono",
  "common",
  "eframe",
- "egui",
+ "egui 0.31.1",
  "egui-notify",
  "egui_extras",
  "ehttp",
@@ -707,12 +707,22 @@ dependencies = [
 
 [[package]]
 name = "ecolor"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d72e9c39f6e11a2e922d04a34ec5e7ef522ea3f5a1acfca7a19d16ad5fe50f5"
+dependencies = [
+ "bytemuck",
+ "emath 0.30.0",
+]
+
+[[package]]
+name = "ecolor"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc4feb366740ded31a004a0e4452fbf84e80ef432ecf8314c485210229672fd1"
 dependencies = [
  "bytemuck",
- "emath",
+ "emath 0.31.1",
  "serde",
 ]
 
@@ -725,9 +735,9 @@ dependencies = [
  "ahash",
  "bytemuck",
  "document-features",
- "egui",
+ "egui 0.31.1",
  "egui-winit",
- "egui_glow",
+ "egui_glow 0.31.1",
  "glow",
  "glutin 0.32.2",
  "glutin-winit",
@@ -756,6 +766,19 @@ dependencies = [
 
 [[package]]
 name = "egui"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "252d52224d35be1535d7fd1d6139ce071fb42c9097773e79f7665604f5596b5e"
+dependencies = [
+ "ahash",
+ "emath 0.30.0",
+ "epaint 0.30.0",
+ "nohash-hasher",
+ "profiling",
+]
+
+[[package]]
+name = "egui"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25dd34cec49ab55d85ebf70139cb1ccd29c977ef6b6ba4fe85489d6877ee9ef3"
@@ -763,8 +786,8 @@ dependencies = [
  "accesskit",
  "ahash",
  "bitflags 2.9.0",
- "emath",
- "epaint",
+ "emath 0.31.1",
+ "epaint 0.31.1",
  "log",
  "nohash-hasher",
  "profiling",
@@ -778,7 +801,7 @@ version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ab6bab52b2ef6d7ba32697da10a2ae7d3e8a245f9da42f62826af3afcd8fdc3"
 dependencies = [
- "egui",
+ "egui 0.31.1",
 ]
 
 [[package]]
@@ -790,7 +813,7 @@ dependencies = [
  "ahash",
  "arboard",
  "bytemuck",
- "egui",
+ "egui 0.31.1",
  "log",
  "profiling",
  "raw-window-handle 0.6.2",
@@ -808,7 +831,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea7536fb0243aea55c1ca123a41a18253e16520d427a7213da584b9e2cb3973"
 dependencies = [
  "duplicate",
- "egui",
+ "egui 0.31.1",
  "paste",
 ]
 
@@ -819,12 +842,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624659a2e972a46f4d5f646557906c55f1cd5a0836eddbe610fdf1afba1b4226"
 dependencies = [
  "ahash",
- "egui",
+ "egui 0.31.1",
  "enum-map",
  "log",
  "mime_guess2",
  "profiling",
  "syntect",
+]
+
+[[package]]
+name = "egui_glow"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3eaf6264cc7608e3e69a7d57a6175f438275f1b3889c1a551b418277721c95e6"
+dependencies = [
+ "ahash",
+ "bytemuck",
+ "egui 0.30.0",
+ "glow",
+ "log",
+ "memoffset 0.9.1",
+ "profiling",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -835,7 +875,7 @@ checksum = "910906e3f042ea6d2378ec12a6fd07698e14ddae68aed2d819ffe944a73aab9e"
 dependencies = [
  "ahash",
  "bytemuck",
- "egui",
+ "egui 0.31.1",
  "glow",
  "log",
  "memoffset 0.9.1",
@@ -851,8 +891,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14ae092b46ea532f6c69d3e71036fb3b688fd00fd09c2a1e43d17051a8ae43e6"
 dependencies = [
  "ahash",
- "egui",
- "emath",
+ "egui 0.31.1",
+ "emath 0.31.1",
 ]
 
 [[package]]
@@ -867,6 +907,15 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "emath"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4fe73c1207b864ee40aa0b0c038d6092af1030744678c60188a05c28553515d"
+dependencies = [
+ "bytemuck",
 ]
 
 [[package]]
@@ -913,6 +962,23 @@ dependencies = [
 
 [[package]]
 name = "epaint"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5666f8d25236293c966fbb3635eac18b04ad1914e3bab55bc7d44b9980cafcac"
+dependencies = [
+ "ab_glyph",
+ "ahash",
+ "bytemuck",
+ "ecolor 0.30.0",
+ "emath 0.30.0",
+ "epaint_default_fonts 0.30.0",
+ "nohash-hasher",
+ "parking_lot",
+ "profiling",
+]
+
+[[package]]
+name = "epaint"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41fcc0f5a7c613afd2dee5e4b30c3e6acafb8ad6f0edb06068811f708a67c562"
@@ -920,15 +986,21 @@ dependencies = [
  "ab_glyph",
  "ahash",
  "bytemuck",
- "ecolor",
- "emath",
- "epaint_default_fonts",
+ "ecolor 0.31.1",
+ "emath 0.31.1",
+ "epaint_default_fonts 0.31.1",
  "log",
  "nohash-hasher",
  "parking_lot",
  "profiling",
  "serde",
 ]
+
+[[package]]
+name = "epaint_default_fonts"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66f6ddac3e6ac6fd4c3d48bb8b1943472f8da0f43a4303bcd8a18aa594401c80"
 
 [[package]]
 name = "epaint_default_fonts"
@@ -998,7 +1070,7 @@ name = "forecasting"
 version = "0.1.0"
 dependencies = [
  "common",
- "egui",
+ "egui 0.31.1",
  "egui_plot",
 ]
 
@@ -1169,8 +1241,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1708,7 +1782,7 @@ dependencies = [
  "clipboard",
  "common",
  "eframe",
- "egui",
+ "egui 0.31.1",
  "egui_dock",
  "egui_extras",
  "serde",
@@ -2566,7 +2640,7 @@ name = "pushuptracker"
 version = "0.1.0"
 dependencies = [
  "common",
- "egui",
+ "egui 0.31.1",
  "egui_plot",
  "js-sys",
  "wasm-bindgen",
@@ -2923,8 +2997,7 @@ name = "sketch3"
 version = "0.1.0"
 dependencies = [
  "common",
- "egui",
- "egui_glow",
+ "egui 0.31.1",
  "three-d",
 ]
 
@@ -3141,6 +3214,9 @@ version = "0.19.0"
 source = "git+https://github.com/asny/three-d.git#be51c35140b15c6d12cc005593620b75f38b71d4"
 dependencies = [
  "cgmath",
+ "egui 0.30.0",
+ "egui_glow 0.30.0",
+ "getrandom 0.2.15",
  "glow",
  "glutin 0.30.10",
  "instant",
@@ -3278,7 +3354,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "common",
- "egui",
+ "egui 0.31.1",
  "sha2",
  "urlencoding",
  "uuid",
@@ -3348,7 +3424,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "common",
- "egui",
+ "egui 0.31.1",
  "serde",
  "win-event-log",
  "winapi",
