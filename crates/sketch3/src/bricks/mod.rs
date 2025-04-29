@@ -9,7 +9,6 @@ pub struct PartCategories {
     pub id: u32,
     pub name: String,
 }
-// part_num,name,part_cat_id,part_material
 pub struct Part {
     pub number: String,
     pub name: String,
