@@ -5,6 +5,8 @@ use std::{
 
 use three_d::*;
 
+pub mod bricks;
+
 fn main() {
     run("sketch3", |c| {
 
@@ -18,7 +20,7 @@ fn main() {
             1000.0,
         );
 
-        let mut control  = OrbitControl::new(camera.target(), 1.0, 100.0);
+        let mut control = OrbitControl::new(camera.target(), 1.0, 100.0);
 
         let mut cube = Gm::new(
             Mesh::new(&c.ctx, &CpuMesh::cube()),
@@ -37,11 +39,11 @@ fn main() {
         );
         let light0 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
         let light1 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
-        
+
         return Box::new(move |mut ctx| {
             let mut panel_width = 0.0;
 
-            ctx.update_ui(|ctx|{
+            ctx.update_ui(|ctx| {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(ctx, |ui| {
                     ui.heading("Hello World");
@@ -59,17 +61,14 @@ fn main() {
 
             camera.set_viewport(viewport);
             control.handle_events(&mut camera, &mut ctx.frame_input.events);
-    
+
             ctx.frame_input
                 .screen()
                 .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
-                .render(
-                    &camera,cube.into_iter(),
-                    &[&light0, &light1],
-                ).write(|| {
+                .render(&camera, cube.into_iter(), &[&light0, &light1])
+                .write(|| {
                     return ctx.gui.render();
                 });
-            
         });
     });
 }
@@ -84,8 +83,8 @@ pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3
 
     let mut gui = three_d::GUI::new(&context);
 
-    let ctx = CreateContext3d{
-        ctx : context.clone(),
+    let ctx = CreateContext3d {
+        ctx: context.clone(),
     };
 
     let mut update = (f)(ctx);
@@ -101,8 +100,8 @@ pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3
     });
 }
 
-pub struct CreateContext3d{
-    pub ctx : Context,
+pub struct CreateContext3d {
+    pub ctx: Context,
 }
 
 pub struct Context3d<'a> {
