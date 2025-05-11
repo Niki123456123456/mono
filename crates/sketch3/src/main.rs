@@ -9,7 +9,64 @@ pub mod bricks;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
-    pub model: Model<PhysicalMaterial>,
+    pub model: ModelPart<ColorMaterial>,
+    pub lines : bricks::line_writer::LineMesh,
+}
+
+pub fn remove_transformation(p: &mut three_d_asset::Primitive) {
+    if let three_d_asset::Geometry::Triangles(g) = &mut p.geometry {
+        match &mut g.positions {
+            Positions::F32(vector3s) => {
+                for pos in vector3s.iter_mut() {
+                    let transformed = p.transformation * Vec4::new(pos.x, pos.y, pos.z, 1.0);
+                    pos.x = transformed.x;
+                    pos.y = transformed.y;
+                    pos.z = transformed.z;
+                }
+            }
+            Positions::F64(vector3s) => {
+                // todo
+            }
+        }
+    }
+    p.transformation = Mat4::identity();
+}
+
+pub fn merge_geos(cpu_model: &mut three_d::CpuModel) {
+    let mut merged_positions = Vec::new();
+    let mut merged_indices = Vec::new();
+    let mut x = 0;
+    for  geo in cpu_model.geometries.iter_mut() {
+        if let three_d_asset::Geometry::Triangles(mesh) = &mut geo.geometry {
+            match (&mut mesh.positions, &mut mesh.indices) {
+                (Positions::F32(positions), Indices::U32(indices)) => {
+                   
+                    for i in indices.iter_mut() {
+                        *i += x;
+                        //println!("{} {}", i, x);
+                    }
+                    x += positions.len() as u32;
+                    merged_indices.append(indices);
+                    merged_positions.append(positions);
+                    
+                }
+                _ => {
+                    println!("Unsupported positions or indices format");
+                }
+            }
+        }
+    }
+    cpu_model.geometries = vec![three_d_asset::Primitive {
+        name: Default::default(),
+        transformation: Mat4::identity(),
+        animations: Vec::new(),
+        geometry: three_d_asset::Geometry::Triangles(three_d_asset::TriMesh {
+            positions: Positions::F32(merged_positions),
+            indices: Indices::U32(merged_indices),
+            ..Default::default()
+        }),
+        material_index: None,
+    }];
 }
 
 fn main() {
@@ -55,9 +112,23 @@ fn main() {
             },
         );
 
-        let light0 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, -0.5, -0.5));
-        let light1 = DirectionalLight::new(&c.ctx, 1.0, Srgba::WHITE, vec3(0.0, 0.5, 0.5));
+        let material2 = ColorMaterial::new(
+            &c.ctx,
+            &CpuMaterial {
+                albedo: Srgba::WHITE,
+                ..Default::default()
+            },
+        );
 
+        let material3 = ColorMaterial::new(
+            &c.ctx,
+            &CpuMaterial {
+                albedo:  Srgba::RED,
+                ..Default::default()
+            },
+        );
+        let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
+        
         let mut include_pr = false;
         let mut resolver = bricks::get_ldraw_lib();
         let mut source_map = weldr::SourceMap::new();
@@ -99,25 +170,33 @@ fn main() {
                                         ) {
                                             Ok(x) => {
                                                 let source_file = source_map.get(&x).unwrap();
+
+                                                let lines = bricks::line_writer::get_mesh(source_file, &source_map, &ctx3d);
                                                 let mut cpu_model =
                                                     bricks::gltf_writer::write_gltf(
-                                                        false,
+                                                        true,
                                                         source_file,
                                                         &source_map,
                                                     )
                                                     .unwrap();
+
+                                                for p in cpu_model.geometries.iter_mut() {
+                                                    remove_transformation(p);
+                                                }
+                                                // merge_geos(&mut cpu_model);
                                                 cpu_model
                                                     .geometries
                                                     .iter_mut()
                                                     .for_each(|m| m.compute_normals());
-                                                let m = Model::<PhysicalMaterial>::new(
-                                                    &ctx3d, &cpu_model,
-                                                )
-                                                .unwrap();
-                                                
+                                                let m =
+                                                    Model::<ColorMaterial>::new(&ctx3d, &cpu_model)
+                                                        .unwrap()
+                                                        .remove(0);
+
                                                 selected_part = Some(SelectedPart {
                                                     part: part.clone(),
                                                     model: m,
+                                                    lines
                                                 });
                                             }
                                             Err(err) => {
@@ -154,9 +233,17 @@ fn main() {
                 .render(&camera, cube.into_iter(), &[&light0, &light1])
                 .write(|| {
                     if let Some(selected_part) = &selected_part {
-                        for x in selected_part.model.iter() {
-                            x.render_with_material(&material, &camera, &[&light0, &light1]);
-                        }
+
+                        selected_part.model.render_with_material(
+                            &material,
+                            &camera,
+                            &[&light],
+                        );
+                        selected_part.lines.render_with_material(
+                            &material3,
+                            &camera,
+                            &[&light],
+                        );
                     }
                     return ctx.gui.render();
                 });

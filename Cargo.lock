@@ -3352,7 +3352,6 @@ dependencies = [
 [[package]]
 name = "three-d"
 version = "0.19.0"
-source = "git+https://github.com/asny/three-d.git#be51c35140b15c6d12cc005593620b75f38b71d4"
 dependencies = [
  "cgmath",
  "egui 0.30.0",

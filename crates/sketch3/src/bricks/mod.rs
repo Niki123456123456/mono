@@ -3,6 +3,7 @@ use std::io::Read;
 
 pub mod gltf;
 pub mod gltf_writer;
+pub mod line_writer;
 
 pub struct Color {
     pub id: u32,
@@ -87,5 +88,11 @@ pub static PART_CATEGORIES: std::sync::LazyLock<Vec<PartCategories>> =
             }
         }
 
-        categories.into_iter().map(|x| x.1).collect()
+        let mut categories: Vec<_> = categories.into_iter().map(|x| x.1).collect();
+
+        categories.sort_by(|a, b| a.name.cmp(&b.name));
+        for category in categories.iter_mut() {
+            category.parts.sort_by(|a, b| a.name.cmp(&b.name));
+        }
+        categories
     });
