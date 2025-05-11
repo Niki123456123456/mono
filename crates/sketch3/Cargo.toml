@@ -15,5 +15,8 @@ serde_json = { workspace = true }
 zip = { workspace = true }
 weldr = { workspace = true }
 glam = { workspace = true }
-ordered-float = { workspace = true }
+rfd = { workspace = true }
 bytemuck = { workspace = true }
+obj-exporter = "0.2.0"
+stl_io = "0.8.5"
+gltf = "1.4.1"

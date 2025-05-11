@@ -58,30 +58,53 @@ pub fn get_triangles(
     return lines;
 }
 
-pub fn get_line_mesh(
-    source_file: &weldr::SourceFile,
-    source_map: &weldr::SourceMap,
-    
-) -> CpuMesh {
+pub fn get_line_mesh(source_file: &weldr::SourceFile, source_map: &weldr::SourceMap) -> CpuMesh {
     let mut mesh = three_d::CpuMesh::default();
 
     let lines = get_lines(source_file, source_map);
-    mesh.positions =
-        three_d::Positions::F32(lines.iter().map(|v| three_d::vec3(v.x, -v.y, v.z)).collect());
+    let lines: Vec<_> = lines
+        .iter()
+        .map(|v| three_d::vec3(v.x, -v.y, v.z))
+        .collect();
+
+    let (indices, lines) = get_indices(lines);
+
+    mesh.indices = three_d::Indices::U32(indices);
+    mesh.positions = three_d::Positions::F32(lines);
 
     return mesh;
+}
+
+pub fn get_indices(triangles: Vec<Vec3>) -> (Vec<u32>, Vec<Vec3>) {
+    let mut triangles2 = vec![];
+    let mut indices = vec![];
+    for v in triangles.into_iter() {
+        if let Some(p) = triangles2.iter().position(|x| x == &v) {
+            indices.push(p as u32);
+        } else {
+            indices.push(triangles2.len() as u32);
+            triangles2.push(v);
+        }
+    }
+    return (indices, triangles2);
 }
 
 pub fn get_triangle_mesh(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
-    
 ) -> CpuMesh {
     let mut mesh = three_d::CpuMesh::default();
 
     let triangles = get_triangles(source_file, source_map);
-    mesh.positions =
-        three_d::Positions::F32(triangles.iter().map(|v| three_d::vec3(v.x, -v.y, v.z)).collect());
+    let triangles: Vec<_> = triangles
+        .iter()
+        .map(|v| three_d::vec3(v.x, -v.y, v.z))
+        .collect();
+
+    let (indices, triangles) = get_indices(triangles);
+
+    mesh.indices = three_d::Indices::U32(indices);
+    mesh.positions = three_d::Positions::F32(triangles);
 
     return mesh;
 }
@@ -108,10 +131,7 @@ impl LineMesh {
         }
     }
 
-    pub fn from_vector(
-        context: &Context,
-        vertices: Vec<Vec3>,
-    ) -> Self {
+    pub fn from_vector(context: &Context, vertices: Vec<Vec3>) -> Self {
         let mut cpu_mesh = CpuMesh::default();
         cpu_mesh.positions = Positions::F32(vertices);
         Self::new(context, &cpu_mesh)
@@ -130,9 +150,6 @@ pub struct BaseMesh {
 
 impl BaseMesh {
     pub fn new(context: &Context, cpu_mesh: &CpuMesh) -> Self {
-        #[cfg(debug_assertions)]
-        cpu_mesh.validate().expect("invalid cpu mesh");
-
         Self {
             indices: match &cpu_mesh.indices {
                 Indices::U8(ind) => IndexBuffer::U8(ElementBuffer::new_with_data(context, ind)),
@@ -172,21 +189,30 @@ impl BaseMesh {
         self.use_attributes(program);
 
         match &self.indices {
-            IndexBuffer::None => self.draw_arrays(
-                program,
+            IndexBuffer::None => program.draw_arrays(
                 render_states,
                 viewer.viewport(),
                 self.positions.vertex_count(),
+                crate::context::LINES,
             ),
-            IndexBuffer::U8(element_buffer) => {
-                self.draw_elements(program, render_states, viewer.viewport(), element_buffer)
-            }
-            IndexBuffer::U16(element_buffer) => {
-                self.draw_elements(program, render_states, viewer.viewport(), element_buffer)
-            }
-            IndexBuffer::U32(element_buffer) => {
-                self.draw_elements(program, render_states, viewer.viewport(), element_buffer)
-            }
+            IndexBuffer::U8(element_buffer) => program.draw_elements(
+                render_states,
+                viewer.viewport(),
+                element_buffer,
+                crate::context::LINES,
+            ),
+            IndexBuffer::U16(element_buffer) => program.draw_elements(
+                render_states,
+                viewer.viewport(),
+                element_buffer,
+                crate::context::LINES,
+            ),
+            IndexBuffer::U32(element_buffer) => program.draw_elements(
+                render_states,
+                viewer.viewport(),
+                element_buffer,
+                crate::context::LINES,
+            ),
         }
     }
 
@@ -281,80 +307,6 @@ impl BaseMesh {
             include_str!("./shared.frag"),
             include_str!("./mesh.vert"),
         )
-    }
-
-    pub fn draw_arrays(
-        &self,
-        program: &Program,
-        render_states: RenderStates,
-        viewport: Viewport,
-        count: u32,
-    ) {
-        self.context.set_viewport(viewport);
-        self.context.set_render_states(render_states);
-        program.use_program();
-        unsafe {
-            self.context
-                .draw_arrays(crate::context::LINES, 0, count as i32);
-            for location in program.attributes.values() {
-                self.context.disable_vertex_attrib_array(*location);
-            }
-            self.context.bind_vertex_array(None);
-        }
-        program.unuse_program();
-
-        #[cfg(debug_assertions)]
-        self.context
-            .error_check()
-            .expect("Unexpected rendering error occured")
-    }
-
-    pub fn draw_elements<T: ElementBufferDataType>(
-        &self,
-        program: &Program,
-        render_states: RenderStates,
-        viewport: Viewport,
-        element_buffer: &ElementBuffer<T>,
-    ) {
-        self.draw_subset_of_elements(
-            program,
-            render_states,
-            viewport,
-            element_buffer,
-            0,
-            element_buffer.count(),
-        )
-    }
-
-    pub fn draw_subset_of_elements<T: ElementBufferDataType>(
-        &self,
-        program: &Program,
-        render_states: RenderStates,
-        viewport: Viewport,
-        element_buffer: &ElementBuffer<T>,
-        first: u32,
-        count: u32,
-    ) {
-        self.context.set_viewport(viewport);
-        self.context.set_render_states(render_states);
-        program.use_program();
-        element_buffer.bind();
-        unsafe {
-            self.context.draw_elements(
-                crate::context::LINES,
-                count as i32,
-                T::data_type(),
-                first as i32,
-            );
-            self.context
-                .bind_buffer(crate::context::ELEMENT_ARRAY_BUFFER, None);
-
-            for location in program.attributes.values() {
-                self.context.disable_vertex_attrib_array(*location);
-            }
-            self.context.bind_vertex_array(None);
-        }
-        program.unuse_program();
     }
 }
 

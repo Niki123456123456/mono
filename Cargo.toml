@@ -45,3 +45,4 @@ weldr ={ git = "https://github.com/djeedai/weldr" }
 glam = "0.30.3"
 ordered-float = "5.0.0"
 bytemuck = "1.23.0"
+rfd = "0.15.3"
