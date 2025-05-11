@@ -61,29 +61,29 @@ pub fn get_triangles(
 pub fn get_line_mesh(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
-    context: &three_d::Context,
-) -> LineMesh {
+    
+) -> CpuMesh {
     let mut mesh = three_d::CpuMesh::default();
 
     let lines = get_lines(source_file, source_map);
     mesh.positions =
         three_d::Positions::F32(lines.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
 
-    return LineMesh::new(context, &mesh);
+    return mesh;
 }
 
 pub fn get_triangle_mesh(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
-    context: &three_d::Context,
-) -> Mesh {
+    
+) -> CpuMesh {
     let mut mesh = three_d::CpuMesh::default();
 
     let triangles = get_triangles(source_file, source_map);
     mesh.positions =
         three_d::Positions::F32(triangles.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
 
-    return Mesh::new(context, &mesh);
+    return mesh;
 }
 
 pub struct LineMesh {

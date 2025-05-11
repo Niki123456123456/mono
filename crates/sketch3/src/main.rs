@@ -9,8 +9,10 @@ pub mod bricks;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
-    pub lines : bricks::line_writer::LineMesh,
-    pub triangles : Mesh,
+    pub lines: CpuMesh,
+    pub triangles: CpuMesh,
+    pub lines_gpu: bricks::line_writer::LineMesh,
+    pub triangles_gpu: Mesh,
 }
 
 pub fn remove_transformation(p: &mut three_d_asset::Primitive) {
@@ -36,11 +38,10 @@ pub fn merge_geos(cpu_model: &mut three_d::CpuModel) {
     let mut merged_positions = Vec::new();
     let mut merged_indices = Vec::new();
     let mut x = 0;
-    for  geo in cpu_model.geometries.iter_mut() {
+    for geo in cpu_model.geometries.iter_mut() {
         if let three_d_asset::Geometry::Triangles(mesh) = &mut geo.geometry {
             match (&mut mesh.positions, &mut mesh.indices) {
                 (Positions::F32(positions), Indices::U32(indices)) => {
-                   
                     for i in indices.iter_mut() {
                         *i += x;
                         //println!("{} {}", i, x);
@@ -48,7 +49,6 @@ pub fn merge_geos(cpu_model: &mut three_d::CpuModel) {
                     x += positions.len() as u32;
                     merged_indices.append(indices);
                     merged_positions.append(positions);
-                    
                 }
                 _ => {
                     println!("Unsupported positions or indices format");
@@ -69,6 +69,20 @@ pub fn merge_geos(cpu_model: &mut three_d::CpuModel) {
     }];
 }
 
+pub fn color_picker(ui: &mut egui::Ui, c: &mut Srgba) {
+    let mut color = egui::Color32::from_rgba_unmultiplied(c.r, c.g, c.b, c.a);
+    egui::color_picker::color_edit_button_srgba(
+        ui,
+        &mut color,
+        egui::color_picker::Alpha::OnlyBlend,
+    );
+
+    c.r = color.r();
+    c.g = color.g();
+    c.b = color.b();
+    c.a = color.a();
+}
+
 fn main() {
     run("sketch3", |c| {
         let mut camera = Camera::new_perspective(
@@ -83,24 +97,19 @@ fn main() {
 
         let mut control = OrbitControl::new(camera.target(), 1.0, 100000.0);
 
-       
-        let material2 = ColorMaterial::new(
+        let mut background_color =  Srgba::new_opaque(27, 27, 27);
+        let mut face_color = Srgba::new_opaque(74, 74, 74);
+        let mut line_color = Srgba::new_opaque(159, 159, 159);
+
+        let mut material = ColorMaterial::new(
             &c.ctx,
             &CpuMaterial {
                 albedo: Srgba::WHITE,
                 ..Default::default()
             },
         );
-
-        let material3 = ColorMaterial::new(
-            &c.ctx,
-            &CpuMaterial {
-                albedo:  Srgba::RED,
-                ..Default::default()
-            },
-        );
         let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
-        
+
         let mut include_pr = false;
         let mut resolver = bricks::get_ldraw_lib();
         let mut source_map = weldr::SourceMap::new();
@@ -116,6 +125,11 @@ fn main() {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(egui_ctx, |ui| {
                     ui.heading("Part Categories");
+
+                    color_picker(ui, &mut background_color);
+                    color_picker(ui, &mut face_color);
+                    color_picker(ui, &mut line_color);
+
                     if let Some(selected_part) = &selected_part {
                         ui.label(format!(
                             "Selected part: {}: {}",
@@ -143,12 +157,28 @@ fn main() {
                                             Ok(x) => {
                                                 let source_file = source_map.get(&x).unwrap();
 
-                                                let lines = bricks::line_writer::get_line_mesh(source_file, &source_map, &ctx3d);
-                                                let triangles = bricks::line_writer::get_triangle_mesh(source_file, &source_map, &ctx3d);
+                                                let lines = bricks::line_writer::get_line_mesh(
+                                                    source_file,
+                                                    &source_map,
+                                                );
+                                                let triangles =
+                                                    bricks::line_writer::get_triangle_mesh(
+                                                        source_file,
+                                                        &source_map,
+                                                    );
+
+                                                let lines_gpu = bricks::line_writer::LineMesh::new(
+                                                    &ctx3d, &lines,
+                                                );
+                                                let triangles_gpu =
+                                                    three_d::Mesh::new(&ctx3d, &triangles);
 
                                                 selected_part = Some(SelectedPart {
                                                     part: part.clone(),
-                                                    lines, triangles
+                                                    lines,
+                                                    triangles,
+                                                    lines_gpu,
+                                                    triangles_gpu,
                                                 });
                                             }
                                             Err(err) => {
@@ -183,17 +213,23 @@ fn main() {
             let _ = ctx
                 .frame_input
                 .screen()
-                .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
+                .clear(ClearState::color_and_depth(
+                    background_color.r as f32 / 255.0,
+                    background_color.g as f32 / 255.0,
+                    background_color.b as f32 / 255.0,
+                    background_color.a as f32 / 255.0,
+                    1.0,
+                ))
                 .write(|| {
                     if let Some(selected_part) = &selected_part {
-
                         unsafe {
                             ctx3d.enable(crate::context::POLYGON_OFFSET_FILL);
                             ctx3d.polygon_offset(1.0, 1.0);
                         }
-                        
-                        selected_part.triangles.render_with_material(
-                            &material2,
+
+                        material.color = face_color;
+                        selected_part.triangles_gpu.render_with_material(
+                            &material,
                             &camera,
                             &[&light],
                         );
@@ -201,13 +237,11 @@ fn main() {
                         unsafe {
                             ctx3d.disable(crate::context::POLYGON_OFFSET_FILL);
                         }
-                        selected_part.lines.render_with_material(
-                            &material3,
-                            &camera,
-                            &[&light],
-                        );
 
-                        
+                        material.color = line_color;
+                        selected_part
+                            .lines_gpu
+                            .render_with_material(&material, &camera, &[&light]);
                     }
                     return ctx.gui.render();
                 });
