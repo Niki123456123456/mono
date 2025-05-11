@@ -24,7 +24,41 @@ pub fn get_lines(
     return lines;
 }
 
-pub fn get_mesh(
+pub fn get_triangles(
+    source_file: &weldr::SourceFile,
+    source_map: &weldr::SourceMap,
+) -> Vec<weldr::Vec3> {
+    let mut lines: Vec<weldr::Vec3> = vec![];
+    for cmd in &source_file.cmds {
+        if let weldr::Command::SubFileRef(cmd) = cmd {
+            if let Some(subfile) = source_map.get(&cmd.file) {
+                let transform = cmd.matrix();
+
+                for pos in get_triangles(subfile, source_map) {
+                    let pos = transform * weldr::Vec4::new(pos.x, pos.y, pos.z, 1.0);
+                    lines.push(weldr::Vec3::new(pos.x, pos.y, pos.z));
+                }
+            }
+        }
+        if let weldr::Command::Triangle(triangle) = cmd {
+            lines.push(triangle.vertices[0]);
+            lines.push(triangle.vertices[1]);
+            lines.push(triangle.vertices[2]);
+        }
+        if let weldr::Command::Quad(quad) = cmd {
+            lines.push(quad.vertices[0]);
+            lines.push(quad.vertices[1]);
+            lines.push(quad.vertices[2]);
+
+            lines.push(quad.vertices[2]);
+            lines.push(quad.vertices[3]);
+            lines.push(quad.vertices[0]);
+        }
+    }
+    return lines;
+}
+
+pub fn get_line_mesh(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
     context: &three_d::Context,
@@ -36,6 +70,20 @@ pub fn get_mesh(
         three_d::Positions::F32(lines.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
 
     return LineMesh::new(context, &mesh);
+}
+
+pub fn get_triangle_mesh(
+    source_file: &weldr::SourceFile,
+    source_map: &weldr::SourceMap,
+    context: &three_d::Context,
+) -> Mesh {
+    let mut mesh = three_d::CpuMesh::default();
+
+    let triangles = get_triangles(source_file, source_map);
+    mesh.positions =
+        three_d::Positions::F32(triangles.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
+
+    return Mesh::new(context, &mesh);
 }
 
 pub struct LineMesh {

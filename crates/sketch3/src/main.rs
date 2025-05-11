@@ -9,8 +9,8 @@ pub mod bricks;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
-    pub model: ModelPart<ColorMaterial>,
     pub lines : bricks::line_writer::LineMesh,
+    pub triangles : Mesh,
 }
 
 pub fn remove_transformation(p: &mut three_d_asset::Primitive) {
@@ -83,35 +83,7 @@ fn main() {
 
         let mut control = OrbitControl::new(camera.target(), 1.0, 100000.0);
 
-        let mut cube = Gm::new(
-            Mesh::new(&c.ctx, &CpuMesh::cube()),
-            PhysicalMaterial::new_transparent(
-                &c.ctx,
-                &CpuMaterial {
-                    albedo: Srgba {
-                        r: 0,
-                        g: 0,
-                        b: 255,
-                        a: 100,
-                    },
-                    ..Default::default()
-                },
-            ),
-        );
-
-        let material = PhysicalMaterial::new(
-            &c.ctx,
-            &CpuMaterial {
-                albedo: Srgba {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    a: 255,
-                },
-                ..Default::default()
-            },
-        );
-
+       
         let material2 = ColorMaterial::new(
             &c.ctx,
             &CpuMaterial {
@@ -171,32 +143,12 @@ fn main() {
                                             Ok(x) => {
                                                 let source_file = source_map.get(&x).unwrap();
 
-                                                let lines = bricks::line_writer::get_mesh(source_file, &source_map, &ctx3d);
-                                                let mut cpu_model =
-                                                    bricks::gltf_writer::write_gltf(
-                                                        true,
-                                                        source_file,
-                                                        &source_map,
-                                                    )
-                                                    .unwrap();
-
-                                                for p in cpu_model.geometries.iter_mut() {
-                                                    remove_transformation(p);
-                                                }
-                                                // merge_geos(&mut cpu_model);
-                                                cpu_model
-                                                    .geometries
-                                                    .iter_mut()
-                                                    .for_each(|m| m.compute_normals());
-                                                let m =
-                                                    Model::<ColorMaterial>::new(&ctx3d, &cpu_model)
-                                                        .unwrap()
-                                                        .remove(0);
+                                                let lines = bricks::line_writer::get_line_mesh(source_file, &source_map, &ctx3d);
+                                                let triangles = bricks::line_writer::get_triangle_mesh(source_file, &source_map, &ctx3d);
 
                                                 selected_part = Some(SelectedPart {
                                                     part: part.clone(),
-                                                    model: m,
-                                                    lines
+                                                    lines, triangles
                                                 });
                                             }
                                             Err(err) => {
@@ -226,24 +178,36 @@ fn main() {
             camera.set_viewport(viewport);
             control.handle_events(&mut camera, &mut ctx.frame_input.events);
 
+            let ctx3d = ctx.frame_input.context.clone();
+
             let _ = ctx
                 .frame_input
                 .screen()
                 .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
-                .render(&camera, cube.into_iter(), &[&light0, &light1])
                 .write(|| {
                     if let Some(selected_part) = &selected_part {
 
-                        selected_part.model.render_with_material(
-                            &material,
+                        unsafe {
+                            ctx3d.enable(crate::context::POLYGON_OFFSET_FILL);
+                            ctx3d.polygon_offset(1.0, 1.0);
+                        }
+                        
+                        selected_part.triangles.render_with_material(
+                            &material2,
                             &camera,
                             &[&light],
                         );
+
+                        unsafe {
+                            ctx3d.disable(crate::context::POLYGON_OFFSET_FILL);
+                        }
                         selected_part.lines.render_with_material(
                             &material3,
                             &camera,
                             &[&light],
                         );
+
+                        
                     }
                     return ctx.gui.render();
                 });

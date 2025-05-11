@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::io::Read;
 
-pub mod gltf;
-pub mod gltf_writer;
 pub mod line_writer;
 
 pub struct Color {
