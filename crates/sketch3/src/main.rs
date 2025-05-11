@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use bricks::line_writer::LineMesh;
 use three_d::*;
 
 pub mod bricks;
@@ -108,6 +109,36 @@ fn main() {
                 ..Default::default()
             },
         );
+
+        let mut red = ColorMaterial::new(
+            &c.ctx,
+            &CpuMaterial {
+                albedo: Srgba::RED,
+                ..Default::default()
+            },
+        );
+
+        let mut green: ColorMaterial = ColorMaterial::new(
+            &c.ctx,
+            &CpuMaterial {
+                albedo: Srgba::GREEN,
+                ..Default::default()
+            },
+        );
+
+        let mut blue: ColorMaterial = ColorMaterial::new(
+            &c.ctx,
+            &CpuMaterial {
+                albedo: Srgba::BLUE,
+                ..Default::default()
+            },
+        );
+
+        let x_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_x()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_x()*100.]);
+        let y_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_y()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_y()*100.]);
+        let z_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_z()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_z()*100.]);
+
+
         let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
 
         let mut include_pr = false;
@@ -221,6 +252,22 @@ fn main() {
                     1.0,
                 ))
                 .write(|| {
+                    x_line.render_with_material(
+                        &red,
+                        &camera,
+                        &[&light],
+                    );
+                    y_line.render_with_material(
+                        &green,
+                        &camera,
+                        &[&light],
+                    );
+                    z_line.render_with_material(
+                        &blue,
+                        &camera,
+                        &[&light],
+                    );
+
                     if let Some(selected_part) = &selected_part {
                         unsafe {
                             ctx3d.enable(crate::context::POLYGON_OFFSET_FILL);

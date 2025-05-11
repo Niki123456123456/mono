@@ -67,7 +67,7 @@ pub fn get_line_mesh(
 
     let lines = get_lines(source_file, source_map);
     mesh.positions =
-        three_d::Positions::F32(lines.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
+        three_d::Positions::F32(lines.iter().map(|v| three_d::vec3(v.x, -v.y, v.z)).collect());
 
     return mesh;
 }
@@ -81,7 +81,7 @@ pub fn get_triangle_mesh(
 
     let triangles = get_triangles(source_file, source_map);
     mesh.positions =
-        three_d::Positions::F32(triangles.iter().map(|v| three_d::vec3(v.x, v.y, v.z)).collect());
+        three_d::Positions::F32(triangles.iter().map(|v| three_d::vec3(v.x, -v.y, v.z)).collect());
 
     return mesh;
 }
@@ -106,6 +106,15 @@ impl LineMesh {
             animation_transformation: Mat4::identity(),
             animation: None,
         }
+    }
+
+    pub fn from_vector(
+        context: &Context,
+        vertices: Vec<Vec3>,
+    ) -> Self {
+        let mut cpu_mesh = CpuMesh::default();
+        cpu_mesh.positions = Positions::F32(vertices);
+        Self::new(context, &cpu_mesh)
     }
 }
 
