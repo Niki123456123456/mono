@@ -3806,6 +3806,7 @@ dependencies = [
 [[package]]
 name = "three-d"
 version = "0.19.0"
+source = "git+https://github.com/Niki123456123456/three-d?branch=program_draw_more_than_triangles#f234df0799364d5448220787b786f1aa6e17dc35"
 dependencies = [
  "cgmath",
  "egui 0.30.0",

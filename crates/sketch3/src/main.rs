@@ -7,7 +7,7 @@ use bricks::line_writer::LineMesh;
 use three_d::*;
 
 pub mod bricks;
-pub mod export;
+// pub mod export;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -159,15 +159,15 @@ fn main() {
                     ui.heading("Part Categories");
 
                     if let Some(selected_part) = selected_part.as_mut() {
-                        if ui.button("Export obj").clicked() {
-                            export::obj::export(&selected_part.lines, &selected_part.triangles, &selected_part.part.name);
-                        }
-                        if ui.button("Export stl").clicked() {
-                            export::stl::export(&selected_part.triangles,  &selected_part.part.name);
-                        }
-                        if ui.button("Export gltf").clicked() {
-                            export::gltf::export(&selected_part.triangles,  &selected_part.part.name);
-                        }
+                        // if ui.button("Export obj").clicked() {
+                        //     export::obj::export(&selected_part.lines, &selected_part.triangles, &selected_part.part.name);
+                        // }
+                        // if ui.button("Export stl").clicked() {
+                        //     export::stl::export(&selected_part.triangles,  &selected_part.part.name);
+                        // }
+                        // if ui.button("Export gltf").clicked() {
+                        //     export::gltf::export(&selected_part.triangles,  &selected_part.part.name);
+                        // }
                     }
 
                     color_picker(ui, &mut background_color);
