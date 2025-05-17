@@ -1,72 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <title>WebXR Cube AR Example</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>
-            body {
-                margin: 0;
-                overflow: hidden;
-            }
-        </style>
-    </head>
-    <body>
-        <script type="module">
-            import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js";
-            import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/webxr/ARButton.js";
 
-            let scene, camera, renderer, cube;
+<head>
+    <meta charset="UTF-8" />
+    <title>WebXR Cube AR Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
 
-            function init() {
-                // Create scene and camera
-                scene = new THREE.Scene();
-                camera = new THREE.PerspectiveCamera(
-                    70,
-                    window.innerWidth / window.innerHeight,
-                    0.01,
-                    20
-                );
+<body>
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+  }
+}
+</script>
+    <script type="module">
+        import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/webxr/ARButton.js";
 
-                // Create renderer with XR enabled.
-                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setPixelRatio(window.devicePixelRatio);
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.xr.enabled = true;
-                document.body.appendChild(renderer.domElement);
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-                // Add ARButton to start AR session.
-                document.body.appendChild(
-                    ARButton.createButton(renderer, { requiredFeatures: ["hit-test"] })
-                );
 
-                // Create a cube.
-                const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-                cube = new THREE.Mesh(geometry, material);
-                // Position the cube 1 meter in front of the camera.
-                cube.position.set(0, 0, -1);
-                scene.add(cube);
+        let scene, camera, renderer, cube;
 
-                window.addEventListener("resize", onWindowResize, false);
-            }
+        function init() {
+            // Create scene and camera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(
+                70,
+                window.innerWidth / window.innerHeight,
+                0.01,
+                20
+            );
 
-            function onWindowResize() {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
+            // Create renderer with XR enabled.
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
 
-            function animate() {
-                renderer.setAnimationLoop(() => {
-                    cube.rotation.x += 0.01;
-                    cube.rotation.y += 0.01;
-                    renderer.render(scene, camera);
-                });
-            }
+            // Add ARButton to start AR session.
+            document.body.appendChild(
+                ARButton.createButton(renderer, { requiredFeatures: ["hit-test"] })
+            );
 
-            init();
-            animate();
-        </script>
-    </body>
+            // // Create a cube.
+            // const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            // cube = new THREE.Mesh(geometry, material);
+            // // Position the cube 1 meter in front of the camera.
+            // cube.position.set(0, 0, -1);
+            // scene.add(cube);
+
+
+
+            const loader = new GLTFLoader();
+            loader.load(
+                "Brick 2 x 4.glb",
+                function (gltf) {
+                    const model = gltf.scene;
+                    model.position.set(0, 0, -0.3); // Position next to the cube
+                    model.scale.set(0.002, 0.002, 0.002); // Adjust scale if needed
+                    scene.add(model);
+                },
+                undefined,
+                function (error) {
+                    console.error("An error happened loading the GLB:", error);
+                }
+            );
+
+            window.addEventListener("resize", onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(() => {
+                renderer.render(scene, camera);
+            });
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+
 </html>
