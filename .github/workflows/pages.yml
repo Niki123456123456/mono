@@ -40,7 +40,7 @@ jobs:
       - name: Build webxr
         run: |
           mkdir -p ../../gh-pages/webxr
-          cp -r ./crates/webxr/* ../../gh-pages/webxr/
+          cp -r ./webxr/* ../../gh-pages/webxr/
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
