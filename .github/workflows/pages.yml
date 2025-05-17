@@ -39,8 +39,8 @@ jobs:
           public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/sketch3"
       - name: Build webxr
         run: |
-          mkdir -p ../../gh-pages/webxr
-          cp -r ./webxr/* ../../gh-pages/webxr/
+          mkdir -p ./gh-pages/webxr
+          cp -r ./webxr/* ./gh-pages/webxr/
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
