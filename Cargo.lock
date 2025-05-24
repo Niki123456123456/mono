@@ -2280,6 +2280,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "moinai"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "eframe",
+ "egui 0.31.1",
+ "egui_extras",
+ "ehttp",
+ "poll-promise",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ndk"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -9,6 +9,10 @@ impl<'a> Context<'a> {
             *self.needs_save = Some(string);
         }
     }
+
+    pub fn get_ui(&mut self) -> &mut egui::Ui {
+        self.ui
+    }
 }
 struct App {
     update: Box<dyn FnMut(Context)>,
