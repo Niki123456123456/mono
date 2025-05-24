@@ -680,6 +680,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui 0.31.1",
+ "ehttp",
  "futures",
  "ron 0.10.1",
  "serde",

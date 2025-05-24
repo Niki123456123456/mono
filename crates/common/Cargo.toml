@@ -9,6 +9,7 @@ eframe = { workspace = true }
 futures = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true }
+ehttp = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = { workspace = true }

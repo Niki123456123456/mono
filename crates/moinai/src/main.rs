@@ -228,18 +228,18 @@ fn get_articles_p(
     let ctx = ctx.clone();
     let api_key = api_key.clone();
     common::execute(async move {
-        let mut articles = get_articles(&api_key);
+        let mut articles = get_articles(&api_key).await;
         sender.send(articles);
         ctx.request_repaint();
     });
     return p;
 }
 
-fn get_articles(api_key: &str) -> Result<Articles, String> {
+async fn get_articles(api_key: &str) -> Result<Articles, String> {
     let mut request = ehttp::Request::get("https://api.moin.ai/api/v1/knowledge");
     request.headers.insert("x-api-key", api_key);
 
-    let response = ehttp::fetch_blocking(&request)?;
+    let response = common::http::fetch(&request).await?;
     let mut articles =
         serde_json::from_slice::<Articles>(&response.bytes).map_err(|e| e.to_string())?;
 

@@ -1,5 +1,6 @@
 pub mod app;
 pub mod remove_where;
+pub mod http;
 
 pub use remove_where::RemoveWhere;
 
