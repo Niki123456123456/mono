@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use egui::Ui;
 // https://github.com/mnaufalhilmym/fexpr/tree/main
@@ -18,12 +18,18 @@ fn main() {
             Default::default()
         };
 
-        let mut promise = if s.api_key.is_empty() {None} else {Some(get_articles_p(&cc.egui_ctx, &s.api_key))};
+        let mut promise = if s.api_key.is_empty() {
+            None
+        } else {
+            Some(get_articles_p(&cc.egui_ctx, &s.api_key))
+        };
+
+        let mut article_details = HashMap::new();
+
+        let mut cache = egui_commonmark::CommonMarkCache::default();
 
         return Box::new(move |mut ctx| {
             let mut ui = ctx.get_ui();
-
-            
 
             let mut save = false;
             ui.horizontal(|ui| {
@@ -45,6 +51,11 @@ fn main() {
                 if let Some(articles) = promise.ready_mut() {
                     match articles {
                         Ok(articles) => {
+                            ui.label(format!(
+                                "{} articles, {} characters",
+                                common::thousands_sep(articles.data.len()),
+                                common::thousands_sep(articles.total_character_count)
+                            ));
                             ui.horizontal(|ui| {
                                 for column in &mut articles.columns {
                                     ui.checkbox(&mut column.enabled, &column.name);
@@ -84,16 +95,12 @@ fn main() {
                                         if !column.enabled {
                                             continue;
                                         }
-                                        if let Some(width) = column.width {
-                                            row.col(|ui| {
-                                                ui.set_width(width);
-                                                ui.label((column.value)(article));
-                                            });
-                                        } else {
-                                            row.col(|ui| {
-                                                ui.label((column.value)(article));
-                                            });
-                                        }
+                                        row.col(|ui| {
+                                            if ui.label((column.value)(article)).double_clicked() {
+                                                article_details
+                                                    .insert(article.id.clone(), article.clone());
+                                            }
+                                        });
                                     }
                                 });
                             });
@@ -107,6 +114,36 @@ fn main() {
                 }
             } else {
                 ui.label("please enter your api key and press load");
+            }
+
+            let mut to_remove = vec![];
+            for (id, article) in article_details.iter() {
+                egui::Window::new(&article.title)
+                    .id(egui::Id::new(id))
+                    .show(ui.ctx(), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "characterCount: {}",
+                                common::thousands_sep(article.characterCount)
+                            ));
+                            ui.label(format!("createdAt: {}", article.createdAt));
+                            ui.label(format!("updatedAt: {}", article.updatedAt));
+                            if ui.button("close").clicked() {
+                                to_remove.push(id.clone());
+                            }
+                        });
+
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            egui_commonmark::CommonMarkViewer::new().show(
+                                ui,
+                                &mut cache,
+                                &article.body,
+                            );
+                        });
+                    });
+            }
+            for id in to_remove {
+                article_details.remove(&id);
             }
 
             if save {
@@ -183,7 +220,10 @@ impl Column {
     }
 }
 
-fn get_articles_p(ctx: &egui::Context, api_key: &String) -> poll_promise::Promise<Result<Articles, std::string::String>> {
+fn get_articles_p(
+    ctx: &egui::Context,
+    api_key: &String,
+) -> poll_promise::Promise<Result<Articles, std::string::String>> {
     let (sender, p) = poll_promise::Promise::new();
     let ctx = ctx.clone();
     let api_key = api_key.clone();
@@ -225,6 +265,7 @@ fn get_articles(api_key: &str) -> Result<Articles, String> {
         )
     }));
     articles.columns = all_columns;
+    articles.total_character_count = articles.data.iter().map(|x| x.characterCount).sum();
 
     Ok(articles)
 }
@@ -234,6 +275,8 @@ struct Articles {
     data: Vec<Article>,
     #[serde(skip)]
     columns: Vec<Column>,
+    #[serde(skip)]
+    total_character_count: usize,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
