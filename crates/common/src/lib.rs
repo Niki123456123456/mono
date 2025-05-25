@@ -2,6 +2,9 @@ pub mod app;
 pub mod remove_where;
 pub mod http;
 
+#[cfg(feature = "query")]
+pub mod query;
+
 pub use remove_where::RemoveWhere;
 
 #[cfg(not(target_arch = "wasm32"))]

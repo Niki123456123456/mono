@@ -1,13 +1,20 @@
 use std::collections::{HashMap, HashSet};
 
-use egui::Ui;
-// https://github.com/mnaufalhilmym/fexpr/tree/main
+use common::query::{Operator, Query, Value};
+use egui::{Ui, Widget};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 #[derive(Default)]
 struct Storage {
     api_key: String,
+    query: String,
+}
+
+#[derive(Debug)]
+pub struct TabSorting {
+    pub reverse: bool,
+    pub column: String,
 }
 
 fn main() {
@@ -27,6 +34,13 @@ fn main() {
         let mut article_details = HashMap::new();
 
         let mut cache = egui_commonmark::CommonMarkCache::default();
+
+        let mut sorting = TabSorting {
+            reverse: false,
+            column: "title".to_string(),
+        };
+
+        let mut q = common::query::try_parse_query(&s.query);
 
         return Box::new(move |mut ctx| {
             let mut ui = ctx.get_ui();
@@ -51,9 +65,52 @@ fn main() {
                 if let Some(articles) = promise.ready_mut() {
                     match articles {
                         Ok(articles) => {
+                            ui.horizontal(|ui| {
+                                return;
+                                let mut query = s.query.clone();
+                                let resp = egui::TextEdit::singleline(&mut query)
+                                    .return_key(Some(egui::KeyboardShortcut::new(
+                                        egui::Modifiers::NONE,
+                                        egui::Key::Enter,
+                                    )))
+                                    .cursor_at_end(true)
+                                    .hint_text("search query")
+                                    .show(ui);
+                                if query != s.query {
+                                    s.query = query;
+                                    q = common::query::try_parse_query(&s.query);
+                                    q = Some(Query::Comparison {
+                                        left: "source".into(),
+                                        op: Operator::Eq,
+                                        right: Value::String("dv_docs".into()),
+                                    });
+                                    q = Some(Query::Comparison {
+                                        left: "source".into(),
+                                        op: Operator::Eq,
+                                        right: Value::String("SalesforceKnowledgeBase".into()),
+                                    });
+                                    println!("query: {:?}", q);
+                                    filter_articles(
+                                        &articles.data,
+                                        &articles.columns,
+                                        &q,
+                                        &mut articles.filtered_data,
+                                        &mut articles.filtered_character_count,
+                                    );
+                                    sort_articles(
+                                        &articles.data,
+                                        &articles.columns,
+                                        &sorting,
+                                        &mut articles.filtered_data,
+                                    );
+                                }
+                            });
+
                             ui.label(format!(
-                                "{} articles, {} characters",
+                                "{} / {} articles, {} / {} characters",
+                                common::thousands_sep(articles.filtered_data.len()),
                                 common::thousands_sep(articles.data.len()),
+                                common::thousands_sep(articles.filtered_character_count),
                                 common::thousands_sep(articles.total_character_count)
                             ));
                             ui.horizontal(|ui| {
@@ -82,21 +139,54 @@ fn main() {
                                         continue;
                                     }
                                     header.col(|ui| {
-                                        ui.label(&column.name);
+                                        let after = if sorting.column == column.name {
+                                            if sorting.reverse { " ⬇" } else { " ⬆" }
+                                        } else {
+                                            ""
+                                        };
+                                        if egui::Label::new(
+                                            egui::RichText::from(format!(
+                                                "{}{}",
+                                                column.name, after
+                                            ))
+                                            .strong(),
+                                        )
+                                        .selectable(false)
+                                        .sense(egui::Sense::click())
+                                        .ui(ui)
+                                        .clicked()
+                                        {
+                                            if sorting.column == column.name {
+                                                sorting.reverse = !sorting.reverse;
+                                            } else {
+                                                sorting.column = column.name.clone();
+                                                sorting.reverse = false;
+                                            }
+                                            sort_articles(
+                                                &articles.data,
+                                                &articles.columns,
+                                                &sorting,
+                                                &mut articles.filtered_data,
+                                            );
+                                        }
                                     });
                                 }
                             });
 
                             table.body(|mut body| {
-                                body.rows(20., articles.data.len(), |mut row| {
-                                    let article = &articles.data[row.index()];
+                                body.rows(20., articles.filtered_data.len(), |mut row| {
+                                    let article =
+                                        &articles.data[articles.filtered_data[row.index()]];
 
                                     for column in &articles.columns {
                                         if !column.enabled {
                                             continue;
                                         }
                                         row.col(|ui| {
-                                            if ui.label((column.value)(article)).double_clicked() {
+                                            if ui
+                                                .label((column.value)(article).to_string())
+                                                .double_clicked()
+                                            {
                                                 article_details
                                                     .insert(article.id.clone(), article.clone());
                                             }
@@ -122,6 +212,7 @@ fn main() {
                     .id(egui::Id::new(id))
                     .show(ui.ctx(), |ui| {
                         ui.horizontal(|ui| {
+                            ui.label(format!("id: {}", article.id));
                             ui.label(format!(
                                 "characterCount: {}",
                                 common::thousands_sep(article.characterCount)
@@ -133,6 +224,7 @@ fn main() {
                             }
                         });
 
+                        ui.heading("Content:");
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             egui_commonmark::CommonMarkViewer::new().show(
                                 ui,
@@ -156,7 +248,7 @@ fn main() {
 struct Column {
     name: String,
     width: Option<f32>,
-    value: Box<dyn Fn(&Article) -> String + Send>,
+    value: Box<dyn Fn(&Article) -> Value + Send>,
     enabled: bool,
 }
 
@@ -164,19 +256,20 @@ impl Column {
     fn new(
         width: Option<f32>,
         name: impl Into<String>,
-        value: impl Fn(&Article) -> String + Send + 'static,
+        enabled: bool,
+        value: impl Fn(&Article) -> Value + Send + 'static,
     ) -> Self {
         Self {
             name: name.into(),
             width,
             value: Box::new(value),
-            enabled: true,
+            enabled,
         }
     }
     fn new2(
         width: Option<f32>,
         name: impl Into<String>,
-        value: Box<dyn Fn(&Article) -> String + Send>,
+        value: Box<dyn Fn(&Article) -> Value + Send>,
     ) -> Self {
         Self {
             name: name.into(),
@@ -188,33 +281,35 @@ impl Column {
 
     fn default() -> Vec<Self> {
         let mut columns = Vec::new();
-        columns.push(Column::new(None, "Title", |article| {
-            article.title.to_string()
+        columns.push(Column::new(None, "title", true, |article| {
+            Value::String(article.title.to_string())
         }));
-        columns.push(Column::new(Some(200.), "Channels", |article| {
-            article
-                .activeOn
-                .iter()
-                .map(|x| x.channel.clone())
-                .collect::<Vec<_>>()
-                .join("\n")
+        columns.push(Column::new(Some(200.), "channel", false, |article| {
+            Value::Array(
+                article
+                    .activeOn
+                    .iter()
+                    .map(|x| Value::String(x.channel.clone()))
+                    .collect(),
+            )
         }));
-        columns.push(Column::new(Some(400.), "Agents", |article| {
-            article
-                .activeOn
-                .iter()
-                .map(|x| x.agent.clone())
-                .collect::<Vec<_>>()
-                .join("\n")
+        columns.push(Column::new(Some(400.), "agent", false, |article| {
+            Value::Array(
+                article
+                    .activeOn
+                    .iter()
+                    .map(|x| Value::String(x.agent.clone()))
+                    .collect(),
+            )
         }));
-        columns.push(Column::new(Some(200.), "characterCount", |article| {
-            article.characterCount.to_string()
+        columns.push(Column::new(Some(200.), "characterCount", true, |article| {
+            Value::Number(article.characterCount as i64)
         }));
-        columns.push(Column::new(Some(200.), "createdAt", |article| {
-            article.createdAt.to_string()
+        columns.push(Column::new(Some(200.), "createdAt", true, |article| {
+            Value::String(article.createdAt.to_string())
         }));
-        columns.push(Column::new(Some(200.), "updatedAt", |article| {
-            article.updatedAt.to_string()
+        columns.push(Column::new(Some(200.), "updatedAt", false, |article| {
+            Value::String(article.updatedAt.to_string())
         }));
         return columns;
     }
@@ -249,8 +344,12 @@ async fn get_articles(api_key: &str) -> Result<Articles, String> {
         .flat_map(|article| article.metadata.keys().cloned())
         .collect();
 
+    
+    let mut meta_keys =meta_keys.into_iter().collect::<Vec<_>>();
+    meta_keys.sort();
+
     let mut all_columns = Column::default();
-    all_columns.extend(meta_keys.iter().map(|key| {
+    all_columns.extend(meta_keys.into_iter().map(|key| {
         let key_cloned = key.clone();
         Column::new2(
             Some(300.),
@@ -259,15 +358,95 @@ async fn get_articles(api_key: &str) -> Result<Articles, String> {
                 article
                     .metadata
                     .get(&key_cloned)
-                    .map(|x| x.to_string())
-                    .unwrap_or_default()
+                    .map(|x| x.to_column())
+                    .unwrap_or(Value::None)
             }),
         )
     }));
     articles.columns = all_columns;
     articles.total_character_count = articles.data.iter().map(|x| x.characterCount).sum();
+    articles.filtered_character_count = articles.total_character_count;
+    articles.filtered_data = (0..articles.data.len()).collect();
+    let c = articles.columns.iter().find(|c| c.name == "title").unwrap();
+    articles.data.sort_by(|a, b| {
+        let a_value = (c.value)(a);
+        let b_value = (c.value)(b);
+        // if sorting.reverse {
+        //     b_value.cmp(&a_value)
+        // } else {
+        //     a_value.cmp(&b_value)
+        // }
+        a_value.cmp(&b_value)
+    });
 
     Ok(articles)
+}
+
+fn sort_articles(
+    data: &Vec<Article>,
+    columns: &Vec<Column>,
+    sorting: &TabSorting,
+    filtered_data: &mut Vec<usize>,
+) {
+    let c = columns.iter().find(|c| c.name == sorting.column).unwrap();
+    filtered_data.sort_by(|&a, &b| {
+        let a_value = (c.value)(&data[a]);
+        let b_value = (c.value)(&data[b]);
+        if sorting.reverse {
+            b_value.cmp(&a_value)
+        } else {
+            a_value.cmp(&b_value)
+        }
+    });
+}
+
+fn filter_articles(
+    data: &Vec<Article>,
+    columns: &Vec<Column>,
+    q: &Option<Query>,
+    filtered_data: &mut Vec<usize>,
+    filtered_character_count: &mut usize,
+) {
+    if let Some(query) = q {
+        filtered_data.clear();
+        filtered_data.extend(0..data.len());
+        filtered_data.retain(|&index| {
+            let article = &data[index];
+            article_matches(article, query, columns)
+        });
+    } else {
+        filtered_data.clear();
+        filtered_data.extend(0..data.len());
+    }
+     *filtered_character_count = filtered_data.iter().map(|x| data[*x].characterCount).sum();
+}
+
+fn article_matches(arc: &Article, q: &Query, columns: &Vec<Column>) -> bool {
+    match q {
+        Query::Logical { left, op, right } => {
+            let left_matches = article_matches(arc, left, columns);
+            let right_matches = article_matches(arc, right, columns);
+            match op {
+                common::query::LogicalOperator::And => left_matches && right_matches,
+                common::query::LogicalOperator::Or => left_matches || right_matches,
+            }
+        }
+        Query::Comparison { left, op, right } => {
+            let field_value = &columns
+                .iter()
+                .find(|c| &c.name == left)
+                .and_then(|c| Some((c.value)(arc)))
+                .unwrap_or(Value::None);
+            match op {
+                common::query::Operator::Eq => field_value == right,
+                common::query::Operator::Ne => field_value != right,
+                common::query::Operator::Gt => field_value > right,
+                common::query::Operator::Lt => field_value < right,
+                common::query::Operator::Ge => field_value >= right,
+                common::query::Operator::Le => field_value <= right,
+            }
+        }
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -277,6 +456,10 @@ struct Articles {
     columns: Vec<Column>,
     #[serde(skip)]
     total_character_count: usize,
+    #[serde(skip)]
+    filtered_character_count: usize,
+    #[serde(skip)]
+    filtered_data: Vec<usize>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -311,21 +494,12 @@ impl ToString for NumberOrString {
         }
     }
 }
-// "id": "6830bbe0e111df4f457f3af8",
-//             "status": "active",
-//             "title": "Fehlermeldung: Could not open listener on port 3404",
-//             "body": "\n\nExternal-Article-Source: https://kb.d-velop.de/s/article/ka0Sd000000INt8IAG\n\nKomponente: d.ecs rendition service\n\nVersion: 4.2.0 - 4.4.1\n\nUnterKategorie: KonvertierenRendering\n\nArtikelNr.: 000001341\n\n---\n\n\n\n## Fehlermeldung: Could not open listener on port 3404\n\n\n\n## Inhalt\n\nDie Anwendung d.ecs rendition service meldet in der d.3-Logdatei nach dem Startvorgang den folgenden Fehler:\n\n```\nCould not open listener on port 3404\n```\n\nDie Fehlermeldung kann folgende Ursachen haben:\n\n- Der Port 3404 auf dem d.ecs rendition service-Server wird bereits verwendet.\n- Der angegebene d.ecs rendition service-Benutzer besitzt keine lokalen Administratorberechtigungen.\n\n## Auflösung\n\nZum Beheben des Fehlers prüfen Sie bitte Folgendes:\n\n- Prüfen Sie den verwendeten Benutzer unter **d.ecs rendition service service configuration**. Dieser Benutzer muss Mitglied der lokalen Administratorengruppe sein.\n- Starten Sie die Eingabeaufforderung (Kommandozeile) als Administrator und geben Sie folgenden Befehl ein: \n  \n  ```\n  netstat -ab > c:\\temp\\ports.txt\n  ```\n  \n  Prüfen Sie in der **ports.txt**-Datei, ob der Port 3404 bereits verwendet wird.\n\nSobald der Port wieder frei ist und der Benutzer entsprechende Berechtigungen hat, sollte d.ecs rendition service erfolgreich starten.\n\n## Voraussetzungen\n\nSie müssen Administratorrechte auf dem Server mit d.ecs rendition service haben.",
-//             "metadata": {
-//                 "source": "SalesforceKnowledgeBase",
-//                 "sourceId": "SalesforceKnowledgeBase_000001341",
-//                 "url": "https://kb.d-velop.de/s/article/ka0Sd000000INt8IAG"
-//             },
-//             "activeOn": [
-//                 {
-//                     "agent": "faq_d_velop_documents_produktanfragen",
-//                     "channel": "null"
-//                 }
-//             ],
-//             "createdAt": "2025-05-23T18:18:08.149Z",
-//             "updatedAt": "2025-05-23T18:18:08.185Z",
-//             "characterCount": 1376
+
+impl NumberOrString {
+    fn to_column(&self) -> Value {
+        match self {
+            NumberOrString::Number(n) => Value::Number(*n),
+            NumberOrString::String(s) => Value::String(s.clone()),
+        }
+    }
+}

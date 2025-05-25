@@ -1,0 +1,23 @@
+WHITESPACE = _{ " " | "\t" | "\n" }
+
+expression = { logical_or }
+
+logical_or = { logical_and ~ (OR ~ logical_and)* }
+logical_and = { logical_primary ~ (AND ~ logical_primary)* }
+
+logical_primary = {
+    comparison 
+}
+
+comparison = { identifier ~ expression ~ value }
+
+value = _{ string | number | identifier }
+
+operator = _{ "=" | ">" | "<" | ">=" | "<=" | "!=" }
+
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number = @{ ASCII_DIGIT+ }
+identifier = @{ (ASCII_ALPHANUMERIC | "_")+ }
+
+AND = _{ "&&" }
+OR  = _{ "||" }

@@ -1,6 +1,14 @@
 use three_d::*;
 
 pub fn export(mesh: &CpuMesh, name: &str) {
+    for pos in mesh.positions.to_f32().iter() {
+        println!("{:?}, {:?}, {:?},", pos.x, pos.y, pos.z);
+    }
+    for pos in mesh.indices.clone().into_u32().unwrap().iter() {
+        print!("{:?}, ", pos);
+    }
+
+    return;
     let res = rfd::FileDialog::new()
         .set_file_name(format!("{}.stl", name))
         .set_title("Export STL")

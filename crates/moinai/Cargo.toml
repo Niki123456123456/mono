@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 egui = { workspace = true }
-common = { workspace = true }
+common = { workspace = true, features = ["query"] }
 ehttp = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
