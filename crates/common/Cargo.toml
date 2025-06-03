@@ -13,7 +13,10 @@ ehttp = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = { workspace = true }
-web-sys = { workspace = true }
+web-sys = { version = "0.3.70", features = [
+  'Window',
+  'HtmlAnchorElement',
+] }
 
 [features]
 query = ["pest", "pest_derive"]

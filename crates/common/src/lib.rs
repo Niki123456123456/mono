@@ -1,6 +1,7 @@
 pub mod app;
 pub mod remove_where;
 pub mod http;
+pub mod filesave;
 
 #[cfg(feature = "query")]
 pub mod query;
