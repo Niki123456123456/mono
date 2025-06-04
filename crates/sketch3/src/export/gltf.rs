@@ -116,14 +116,9 @@ pub fn export(mesh: &CpuMesh, name: &str) {
         json: Cow::Owned(json_string.into_bytes()),
     };
 
-    let res = rfd::FileDialog::new()
-        .set_file_name(format!("{}.glb", name))
-        .set_title("Export GLB")
-        .save_file();
-    if let Some(path) = res {
-        let writer = std::fs::File::create(path).expect("I/O error");
-        glb.to_writer(writer).expect("glTF binary output error");
-    }
+     common::filesave::save_file(&format!("{}.glb", name), |w| {
+         glb.to_writer(w).expect("glTF binary output error");
+    });
 }
 
 fn to_padded_byte_vector<T: bytemuck::NoUninit>(data: &[T]) -> Vec<u8> {

@@ -678,12 +678,14 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "eframe",
  "egui 0.31.1",
  "ehttp",
  "futures",
  "pest",
  "pest_derive",
+ "rfd",
  "ron 0.10.1",
  "serde",
  "wasm-bindgen-futures",

@@ -1,26 +1,17 @@
 use three_d::*;
 
 pub fn export(mesh: &CpuMesh, name: &str) {
-    for pos in mesh.positions.to_f32().iter() {
-        println!("{:?}, {:?}, {:?},", pos.x, pos.y, pos.z);
-    }
-    for pos in mesh.indices.clone().into_u32().unwrap().iter() {
-        print!("{:?}, ", pos);
-    }
+    // for pos in mesh.positions.to_f32().iter() {
+    //     println!("{:?}, {:?}, {:?},", pos.x, pos.y, pos.z);
+    // }
+    // for pos in mesh.indices.clone().into_u32().unwrap().iter() {
+    //     print!("{:?}, ", pos);
+    // }
 
-    return;
-    let res = rfd::FileDialog::new()
-        .set_file_name(format!("{}.stl", name))
-        .set_title("Export STL")
-        .save_file();
-    if let Some(path) = res {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .unwrap();
-        stl_io::write_stl(&mut file, get_triangles(mesh).iter()).unwrap();
-    }
+    // return;
+    common::filesave::save_file(&format!("{}.stl", name), |w| {
+        stl_io::write_stl(w, get_triangles(mesh).iter()).unwrap();
+    });
 }
 
 fn compute_normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3 {

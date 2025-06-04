@@ -56,12 +56,8 @@ pub fn export(lines: &CpuMesh, triangles: &CpuMesh, name: &str) {
             }],
         }],
     };
-
-    let res = rfd::FileDialog::new()
-        .set_file_name(format!("{}.obj", name))
-        .set_title("Export OBJ")
-        .save_file();
-    if let Some(path) = res {
-        obj_exporter::export_to_file(&set, path).unwrap();
-    }
+    
+    common::filesave::save_file(&format!("{}.obj", name), |w| {
+         obj_exporter::export(&set, w).unwrap();
+    });
 }
