@@ -40,19 +40,36 @@ pub fn get_triangles(
                 println!("command: {}", cmd.text);
             }
             if cmd.text == "BFC INVERTNEXT" {
-               invert_next = true;
-            } 
+                invert_next = true;
+                println!("invert next");
+            }
             continue;
         }
         if let weldr::Command::SubFileRef(cmd) = cmd {
             if let Some(subfile) = source_map.get(&cmd.file) {
                 let transform = cmd.matrix();
 
+                if invert_next {
+                    println!("file");
+                }
+                if is_matrix_reversed(transform) && invert_next {
+                    println!("reversed matrix + invert next");
+                    // continue;
+                }
+                let indices = if (is_matrix_reversed(transform) && !invert_next) || (!is_matrix_reversed(transform) && invert_next) {
+                    [2, 1, 0]
+                } else {
+                    [0, 1, 2]
+                };
+
                 for pos in get_triangles(subfile, source_map).chunks(3) {
-                    for p in if (is_matrix_reversed(transform) && !invert_next) || invert_next {[2, 1, 0]} else {[0, 1, 2]}  {
-                        let pos = transform * weldr::Vec4::new(pos[p].x, pos[p].y, pos[p].z, 1.0);
+                    for i in indices {
+                        let pos = transform * weldr::Vec4::new(pos[i].x, pos[i].y, pos[i].z, 1.0);
                         lines.push(weldr::Vec3::new(pos.x, pos.y, pos.z));
                     }
+                }
+                if invert_next {
+                    println!("end file");
                 }
             }
             invert_next = false;
@@ -68,6 +85,9 @@ pub fn get_triangles(
             invert_next = false;
         }
         if let weldr::Command::Quad(quad) = cmd {
+            if invert_next {
+                println!("invert quad");
+            }
             // lines.push(quad.vertices[0]);
             // lines.push(quad.vertices[1]);
             // lines.push(quad.vertices[2]);
