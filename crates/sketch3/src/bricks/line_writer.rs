@@ -24,6 +24,10 @@ pub fn get_lines(
     return lines;
 }
 
+fn is_matrix_reversed(matrix: weldr::Mat4) -> bool {
+    matrix.determinant() < 0.0
+}
+
 pub fn get_triangles(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
@@ -34,25 +38,38 @@ pub fn get_triangles(
             if let Some(subfile) = source_map.get(&cmd.file) {
                 let transform = cmd.matrix();
 
-                for pos in get_triangles(subfile, source_map) {
-                    let pos = transform * weldr::Vec4::new(pos.x, pos.y, pos.z, 1.0);
-                    lines.push(weldr::Vec3::new(pos.x, pos.y, pos.z));
+                for pos in get_triangles(subfile, source_map).chunks(3) {
+                    for p in if is_matrix_reversed(transform) {[2, 1, 0]} else {[0, 1, 2]}  {
+                        let pos = transform * weldr::Vec4::new(pos[p].x, pos[p].y, pos[p].z, 1.0);
+                        lines.push(weldr::Vec3::new(pos.x, pos.y, pos.z));
+                    }
                 }
             }
         }
         if let weldr::Command::Triangle(triangle) = cmd {
-            lines.push(triangle.vertices[0]);
-            lines.push(triangle.vertices[1]);
+            // lines.push(triangle.vertices[0]);
+            // lines.push(triangle.vertices[1]);
+            // lines.push(triangle.vertices[2]);
+
             lines.push(triangle.vertices[2]);
+            lines.push(triangle.vertices[1]);
+            lines.push(triangle.vertices[0]);
         }
         if let weldr::Command::Quad(quad) = cmd {
-            lines.push(quad.vertices[0]);
-            lines.push(quad.vertices[1]);
-            lines.push(quad.vertices[2]);
+            // lines.push(quad.vertices[0]);
+            // lines.push(quad.vertices[1]);
+            // lines.push(quad.vertices[2]);
 
+            // lines.push(quad.vertices[2]);
+            // lines.push(quad.vertices[3]);
+            // lines.push(quad.vertices[0]);
             lines.push(quad.vertices[2]);
-            lines.push(quad.vertices[3]);
+            lines.push(quad.vertices[1]);
             lines.push(quad.vertices[0]);
+
+            lines.push(quad.vertices[0]);
+            lines.push(quad.vertices[3]);
+            lines.push(quad.vertices[2]);
         }
     }
     return lines;
