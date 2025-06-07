@@ -65,7 +65,12 @@ pub fn get_triangles(
             }
             if cmd.text == "BFC INVERTNEXT" {
                 invert_next = true;
-                println!("invert next");
+            }
+            if cmd.text == "BFC CERTIFY CCW" {
+                winding = Winding::CCW;
+            }
+            if cmd.text == "BFC CERTIFY CW" {
+                winding = Winding::CW;
             }
             continue;
         }
@@ -78,7 +83,6 @@ pub fn get_triangles(
                 }
                 if is_matrix_reversed(transform) && invert_next {
                     println!("reversed matrix + invert next");
-                    // continue;
                 }
                 let indices = if (is_matrix_reversed(transform) && !invert_next)
                     || (!is_matrix_reversed(transform) && invert_next)
@@ -101,13 +105,6 @@ pub fn get_triangles(
             invert_next = false;
         }
         if let weldr::Command::Triangle(triangle) = cmd {
-            // lines.push(triangle.vertices[0]);
-            // lines.push(triangle.vertices[1]);
-            // lines.push(triangle.vertices[2]);
-
-            // lines.push(triangle.vertices[2]);
-            // lines.push(triangle.vertices[1]);
-            // lines.push(triangle.vertices[0]);
             for i in indices[&winding][0] {
                 lines.push(triangle.vertices[i]);
             }
@@ -117,20 +114,6 @@ pub fn get_triangles(
             if invert_next {
                 println!("invert quad");
             }
-            // lines.push(quad.vertices[0]);
-            // lines.push(quad.vertices[1]);
-            // lines.push(quad.vertices[2]);
-
-            // lines.push(quad.vertices[2]);
-            // lines.push(quad.vertices[3]);
-            // lines.push(quad.vertices[0]);
-            // lines.push(quad.vertices[2]);
-            // lines.push(quad.vertices[1]);
-            // lines.push(quad.vertices[0]);
-
-            // lines.push(quad.vertices[0]);
-            // lines.push(quad.vertices[3]);
-            // lines.push(quad.vertices[2]);
             for i in indices[&winding][0] {
                 lines.push(quad.vertices[i]);
             }
