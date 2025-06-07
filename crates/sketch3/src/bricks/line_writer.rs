@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use three_d::*;
 
 pub fn get_lines(
@@ -28,12 +30,34 @@ fn is_matrix_reversed(matrix: weldr::Mat4) -> bool {
     matrix.determinant() < 0.0
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Winding {
+    CW,  // Clockwise
+    CCW, // Counter-clockwise
+}
+
+impl std::ops::Not for Winding {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Winding::CW => Winding::CCW,
+            Winding::CCW => Winding::CW,
+        }
+    }
+}
+
 pub fn get_triangles(
     source_file: &weldr::SourceFile,
     source_map: &weldr::SourceMap,
 ) -> Vec<weldr::Vec3> {
     let mut lines: Vec<weldr::Vec3> = vec![];
     let mut invert_next = false;
+    let mut winding = Winding::CCW;
+    let indices = HashMap::from([
+        (Winding::CCW, [[2, 1, 0], [0, 3, 2]]),
+        (Winding::CW, [[0, 1, 2], [2, 3, 0]]),
+    ]);
     for cmd in &source_file.cmds {
         if let weldr::Command::Comment(cmd) = cmd {
             if cmd.text.starts_with("BFC") {
@@ -56,7 +80,9 @@ pub fn get_triangles(
                     println!("reversed matrix + invert next");
                     // continue;
                 }
-                let indices = if (is_matrix_reversed(transform) && !invert_next) || (!is_matrix_reversed(transform) && invert_next) {
+                let indices = if (is_matrix_reversed(transform) && !invert_next)
+                    || (!is_matrix_reversed(transform) && invert_next)
+                {
                     [2, 1, 0]
                 } else {
                     [0, 1, 2]
@@ -79,9 +105,12 @@ pub fn get_triangles(
             // lines.push(triangle.vertices[1]);
             // lines.push(triangle.vertices[2]);
 
-            lines.push(triangle.vertices[2]);
-            lines.push(triangle.vertices[1]);
-            lines.push(triangle.vertices[0]);
+            // lines.push(triangle.vertices[2]);
+            // lines.push(triangle.vertices[1]);
+            // lines.push(triangle.vertices[0]);
+            for i in indices[&winding][0] {
+                lines.push(triangle.vertices[i]);
+            }
             invert_next = false;
         }
         if let weldr::Command::Quad(quad) = cmd {
@@ -95,13 +124,19 @@ pub fn get_triangles(
             // lines.push(quad.vertices[2]);
             // lines.push(quad.vertices[3]);
             // lines.push(quad.vertices[0]);
-            lines.push(quad.vertices[2]);
-            lines.push(quad.vertices[1]);
-            lines.push(quad.vertices[0]);
+            // lines.push(quad.vertices[2]);
+            // lines.push(quad.vertices[1]);
+            // lines.push(quad.vertices[0]);
 
-            lines.push(quad.vertices[0]);
-            lines.push(quad.vertices[3]);
-            lines.push(quad.vertices[2]);
+            // lines.push(quad.vertices[0]);
+            // lines.push(quad.vertices[3]);
+            // lines.push(quad.vertices[2]);
+            for i in indices[&winding][0] {
+                lines.push(quad.vertices[i]);
+            }
+            for i in indices[&winding][1] {
+                lines.push(quad.vertices[i]);
+            }
             invert_next = false;
         }
     }
