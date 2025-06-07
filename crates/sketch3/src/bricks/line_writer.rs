@@ -33,18 +33,29 @@ pub fn get_triangles(
     source_map: &weldr::SourceMap,
 ) -> Vec<weldr::Vec3> {
     let mut lines: Vec<weldr::Vec3> = vec![];
+    let mut invert_next = false;
     for cmd in &source_file.cmds {
+        if let weldr::Command::Comment(cmd) = cmd {
+            if cmd.text.starts_with("BFC") {
+                println!("command: {}", cmd.text);
+            }
+            if cmd.text == "BFC INVERTNEXT" {
+               invert_next = true;
+            } 
+            continue;
+        }
         if let weldr::Command::SubFileRef(cmd) = cmd {
             if let Some(subfile) = source_map.get(&cmd.file) {
                 let transform = cmd.matrix();
 
                 for pos in get_triangles(subfile, source_map).chunks(3) {
-                    for p in if is_matrix_reversed(transform) {[2, 1, 0]} else {[0, 1, 2]}  {
+                    for p in if (is_matrix_reversed(transform) && !invert_next) || invert_next {[2, 1, 0]} else {[0, 1, 2]}  {
                         let pos = transform * weldr::Vec4::new(pos[p].x, pos[p].y, pos[p].z, 1.0);
                         lines.push(weldr::Vec3::new(pos.x, pos.y, pos.z));
                     }
                 }
             }
+            invert_next = false;
         }
         if let weldr::Command::Triangle(triangle) = cmd {
             // lines.push(triangle.vertices[0]);
@@ -54,6 +65,7 @@ pub fn get_triangles(
             lines.push(triangle.vertices[2]);
             lines.push(triangle.vertices[1]);
             lines.push(triangle.vertices[0]);
+            invert_next = false;
         }
         if let weldr::Command::Quad(quad) = cmd {
             // lines.push(quad.vertices[0]);
@@ -70,6 +82,7 @@ pub fn get_triangles(
             lines.push(quad.vertices[0]);
             lines.push(quad.vertices[3]);
             lines.push(quad.vertices[2]);
+            invert_next = false;
         }
     }
     return lines;
