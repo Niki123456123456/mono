@@ -31,7 +31,7 @@ fn is_matrix_reversed(matrix: weldr::Mat4) -> bool {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Winding {
+pub enum Winding { // https://www.ldraw.org/article/415.html
     CW,  // Clockwise
     CCW, // Counter-clockwise
 }
