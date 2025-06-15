@@ -101,6 +101,29 @@ pub fn request_device_motion_permission() {
     }
 }
 
+pub fn request_orientation_motion_permission() {
+    let global = js_sys::global();
+
+    // Check if 'DeviceMotionEvent' exists
+    if let Ok(device_motion_event) =
+        Reflect::get(&global, &JsValue::from_str("DeviceOrientationEvent"))
+    {
+        // Check if 'requestPermission' is a function
+        if let Ok(request_permission) = Reflect::get(
+            &device_motion_event,
+            &JsValue::from_str("requestPermission"),
+        ) {
+            if request_permission.is_function() {
+                let func: &Function = request_permission.unchecked_ref();
+                // Call DeviceMotionEvent.requestPermission()
+                if let Err(e) = func.call0(&device_motion_event) {
+                    console::error_1(&e);
+                }
+            }
+        }
+    }
+}
+
 pub fn get_navigation_start() -> f64 {
     let window = window().expect("no global `window` exists");
     let performance = window
@@ -118,6 +141,7 @@ fn main() {
         let mut o = Arc::new(Mutex::new(Orientation::default()));
 
         let mut motion_closure: Option<Closure<dyn FnMut(_)>> = None;
+        let mut orientation_closure: Option<Closure<dyn FnMut(_)>> = None;
 
         let start = get_navigation_start();
 
@@ -128,6 +152,7 @@ fn main() {
 
             if ui.button("start").clicked() {
                 request_device_motion_permission();
+                request_orientation_motion_permission();
                 let e2 = e.clone();
                 let o2 = o.clone();
                 let ctx2 = ui.ctx().clone();
@@ -170,7 +195,7 @@ fn main() {
                 }) as Box<dyn FnMut(_)>));
 
                 let o2 = o.clone();
-                let orientation_closure = Some(Closure::wrap(Box::new(
+                orientation_closure = Some(Closure::wrap(Box::new(
                     move |event: DeviceOrientationEvent| {
                         ctx3.request_repaint();
 
@@ -184,8 +209,7 @@ fn main() {
                             o.gamma = gamma;
                         }
                     },
-                )
-                    as Box<dyn FnMut(_)>));
+                )as Box<dyn FnMut(_)>));
 
                 window
                     .add_event_listener_with_callback(
@@ -281,7 +305,7 @@ fn main() {
                                         "r_z",
                                         egui_plot::PlotPoints::from_ys_f64(&workout.raw.r_z),
                                     ));
-                                     plot_ui.line(egui_plot::Line::new(
+                                    plot_ui.line(egui_plot::Line::new(
                                         "o_x",
                                         egui_plot::PlotPoints::from_ys_f64(&workout.raw.o_x),
                                     ));
