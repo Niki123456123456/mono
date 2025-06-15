@@ -22,6 +22,7 @@ web-sys = { version = "0.3.70", features = [
   "Request",
   "RequestInit",
   "Headers",
+  "Crypto",
 ] }
 js-sys = "0.3"
 ehttp = { workspace = true }

@@ -23,6 +23,44 @@ pub struct PushupWorkout {
     pub start: f64,
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct PushupWorkoutRequest {
+    pub id: String,
+    pub i: f64,
+    pub start: f64,
+}
+
+#[derive(serde::Serialize)]
+pub struct PushupWorkoutPartRequest<'a> {
+    pub workout_id: String,
+    pub i: usize,
+    pub a_x: &'a [f64],
+    pub a_y: &'a [f64],
+    pub a_z: &'a [f64],
+    pub r_x: &'a [f64],
+    pub r_y: &'a [f64],
+    pub r_z: &'a [f64],
+}
+
+pub fn generate_random_string(length: usize) -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let mut result = String::with_capacity(length);
+
+    let window = window().expect("no global `window` exists");
+    let crypto = window.crypto().expect("should have crypto");
+
+    let mut random_bytes = vec![0u8; length];
+    crypto
+        .get_random_values_with_u8_array(&mut random_bytes)
+        .unwrap();
+
+    for byte in random_bytes {
+        let idx = (byte as usize) % CHARSET.len();
+        result.push(CHARSET[idx] as char);
+    }
+
+    result
+}
 pub fn request_device_motion_permission() {
     let global = js_sys::global();
 
@@ -125,35 +163,102 @@ fn main() {
                         ui.label(format!("x: {:?}", e.raw.r_x[i]));
                         ui.label(format!("y: {:?}", e.raw.r_y[i]));
                         ui.label(format!("z: {:?}", e.raw.r_z[i]));
-
-                        let size_bytes = std::mem::size_of_val(&e); // slice of the vector
-                        let size_mb = size_bytes as f64 / 1_048_576.0;
-                        ui.label(format!("size: {:.2} MB", size_mb));
+                        ui.label(format!("count: {}", i+1));
                     }
                     if ui.button("send").clicked() {
-                        let s =
-                            serde_json::to_string(&e).expect("Failed to serialize workout data");
-
-                        let mut r = ehttp::Request::post(
-                            "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
-                            s.as_bytes().to_vec(),
-                        );
-                        r.headers.insert("Content-Type", "application/json");
-                        r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
-                        r.headers.insert("Accept", "application/json");
-                        r.headers.insert("Surreal-DB", "sport");
-                        r.headers.insert("Surreal-NS", "sport");
-
-                        let ctx2 = ui.ctx().clone();
-                        common::execute(async move {
-                            let response = common::http::fetch(&r).await;
-                            ctx2.request_repaint();
-                        });
+                        create_pushup_workout(&e, ui.ctx());
+                    }
+                } else {
+                    if ui.button("send fake").clicked() {
+                        let w = PushupWorkout {
+                            raw: MEvents {
+                                a_x: vec![0.02699037132151425f64; 200],
+                                a_y: vec![0.08210610934384167f64; 200],
+                                a_z: vec![0.07051679383702576f64; 200],
+                                r_x: vec![0.017808628413081166f64; 200],
+                                r_y: vec![0.02699037132151425f64; 200],
+                                r_z: vec![0.0484881365761160f64; 200],
+                            },
+                            i: 0.0,
+                            start: start,
+                        };
+                        create_pushup_workout(&w, ui.ctx());
                     }
                 }
             }
         });
     });
+}
+
+fn create_pushup_workout(w: &PushupWorkout, ctx: &egui::Context) {
+    let id = generate_random_string(20);
+    let s = serde_json::to_string(&PushupWorkoutRequest {
+        id: id.clone(),
+        i: w.i,
+        start: w.start,
+    })
+    .expect("Failed to serialize workout data");
+
+    let mut r = ehttp::Request::post(
+        "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
+        s.as_bytes().to_vec(),
+    );
+    r.headers.insert("Content-Type", "application/json");
+    r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
+    r.headers.insert("Accept", "application/json");
+    r.headers.insert("Surreal-DB", "sport");
+    r.headers.insert("Surreal-NS", "sport");
+
+    let ctx2 = ctx.clone();
+    common::execute(async move {
+        let response = common::http::fetch(&r).await;
+        ctx2.request_repaint();
+    });
+    let mut i = 0;
+    let n = 100;
+    loop {
+        if (i * n) >= w.raw.a_x.len() {
+            break;
+        }
+        let r = (i * n)..(((i + 1) * n).min(w.raw.a_x.len()));
+        let a_x = &w.raw.a_x[r.clone()];
+        let a_y = &w.raw.a_y[r.clone()];
+        let a_z = &w.raw.a_z[r.clone()];
+        let r_x = &w.raw.r_x[r.clone()];
+        let r_y = &w.raw.r_y[r.clone()];
+        let r_z = &w.raw.r_z[r.clone()];
+
+        let part_request = PushupWorkoutPartRequest {
+            workout_id: id.clone(),
+            i,
+            a_x,
+            a_y,
+            a_z,
+            r_x,
+            r_y,
+            r_z,
+        };
+
+        let s =
+            serde_json::to_string(&part_request).expect("Failed to serialize workout part data");
+
+        let mut r2 = ehttp::Request::post(
+            "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups_part",
+            s.as_bytes().to_vec(),
+        );
+        r2.headers.insert("Content-Type", "application/json");
+        r2.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
+        r2.headers.insert("Accept", "application/json");
+        r2.headers.insert("Surreal-DB", "sport");
+        r2.headers.insert("Surreal-NS", "sport");
+        let ctx2 = ctx.clone();
+        common::execute(async move {
+            let response = common::http::fetch(&r2).await;
+            ctx2.request_repaint();
+        });
+
+        i += 1;
+    }
 }
 
 fn log_f64(label: &str, value: Option<f64>) {
