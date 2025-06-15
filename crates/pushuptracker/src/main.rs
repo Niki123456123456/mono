@@ -16,6 +16,7 @@ pub struct MEvent {
     pub r_y: f64,
     pub r_z: f64,
     pub i: f64,
+    pub t: f64,
 }
 
 pub fn request_device_motion_permission() {
@@ -44,7 +45,7 @@ fn main() {
     common::app::run("push-up tracker", |cc| {
         let window = window().unwrap();
 
-        let mut e = Arc::new(Mutex::new(MEvent::default()));
+        let mut e = Arc::new(Mutex::new(Vec::new()));
 
         let mut motion_closure: Option<Closure<dyn FnMut(_)>> = None;
 
@@ -58,8 +59,6 @@ fn main() {
                 motion_closure = Some(Closure::wrap(Box::new(move |event: DeviceMotionEvent| {
                     ctx2.request_repaint();
 
-                    let mut e = e2.lock();
-
                     let acceleration = event
                         .acceleration()
                         .and_then(|acc| acc.x().zip(acc.y().zip(acc.z())));
@@ -67,32 +66,24 @@ fn main() {
                         .rotation_rate()
                         .and_then(|acc| acc.alpha().zip(acc.beta().zip(acc.gamma())));
                     let interval = event.interval();
+                    let t = event.time_stamp();
 
                     if let Some((((a_x, (a_y, a_z)), (r_x, (r_y, r_z))), i)) =
                         acceleration.zip(rotation).zip(interval)
                     {
-                        e.a_x = a_x;
-                        e.a_y = a_y;
-                        e.a_z = a_z;
-                        e.r_x = r_x;
-                        e.r_y = r_y;
-                        e.r_z = r_z;
-                        e.i = i;
+                        let e = MEvent {
+                            a_x,
+                            a_y,
+                            a_z,
+                            r_x,
+                            r_y,
+                            r_z,
+                            i,
+                            t,
+                        };
+                        let mut events = e2.lock();
+                        events.push(e);
                     }
-
-                    log_f64("Accelerometer_i", event.interval());
-                    if let Some(acc_g) = event.acceleration_including_gravity() {
-                        log_f64("Accelerometer_gx", acc_g.x());
-                        log_f64("Accelerometer_gy", acc_g.y());
-                        log_f64("Accelerometer_gz", acc_g.z());
-                    }
-                    if let Some(rot) = event.rotation_rate() {
-                        log_f64("Gyroscope_z", rot.alpha());
-                        log_f64("Gyroscope_x", rot.beta());
-                        log_f64("Gyroscope_y", rot.gamma());
-                    }
-
-                    log("Motion event triggered");
                 }) as Box<dyn FnMut(_)>));
 
                 window
@@ -105,13 +96,15 @@ fn main() {
 
             {
                 let e = e.lock();
-                ui.label(format!("interval: {:?}", e.i));
-                ui.label(format!("x: {:?}", e.a_x));
-                ui.label(format!("y: {:?}", e.a_y));
-                ui.label(format!("z: {:?}", e.a_z));
-                ui.label(format!("x: {:?}", e.r_x));
-                ui.label(format!("y: {:?}", e.r_y));
-                ui.label(format!("z: {:?}", e.r_z));
+                if let Some(e) = e.last() {
+                    ui.label(format!("interval: {:?}", e.i));
+                    ui.label(format!("x: {:?}", e.a_x));
+                    ui.label(format!("y: {:?}", e.a_y));
+                    ui.label(format!("z: {:?}", e.a_z));
+                    ui.label(format!("x: {:?}", e.r_x));
+                    ui.label(format!("y: {:?}", e.r_y));
+                    ui.label(format!("z: {:?}", e.r_z));
+                }
             }
         });
     });
