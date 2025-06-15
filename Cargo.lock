@@ -3219,6 +3219,7 @@ dependencies = [
  "egui_plot",
  "ehttp",
  "js-sys",
+ "poll-promise",
  "serde",
  "serde_json",
  "wasm-bindgen",
