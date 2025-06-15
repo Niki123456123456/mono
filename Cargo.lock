@@ -683,11 +683,13 @@ dependencies = [
  "egui 0.31.1",
  "ehttp",
  "futures",
+ "js-sys",
  "pest",
  "pest_derive",
  "rfd",
  "ron 0.10.1",
  "serde",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
 ]
@@ -3220,6 +3222,7 @@ dependencies = [
  "serde",
  "serde_json",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -4265,6 +4268,8 @@ dependencies = [
  "cfg-if",
  "once_cell",
  "rustversion",
+ "serde",
+ "serde_json",
  "wasm-bindgen-macro",
 ]
 

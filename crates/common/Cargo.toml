@@ -19,6 +19,9 @@ web-sys = { version = "0.3.70", features = [
   'Window',
   'HtmlAnchorElement',
 ] }
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+js-sys = "0.3"
+
 
 [features]
 query = ["pest", "pest_derive"]

@@ -146,10 +146,16 @@ fn main() {
                         events.t.push(event.t);
                     }
                     let workout = PushupWorkout { raw: events, start };
+                    let s =
+                        serde_json::to_string(&workout).expect("Failed to serialize workout data");
+                    log(&s);
+
                     let mut r = ehttp::Request::post(
                         "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
-                        serde_json::to_vec(&workout).unwrap(),
+                        s.as_bytes().to_vec(),
                     );
+
+                    let body = wasm_bindgen::JsValue::from_serde(&workout).unwrap();
                     r.headers.insert("Content-Type", "application/json");
                     r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
                     r.headers.insert("Accept", "application/json");
@@ -176,3 +182,4 @@ fn log_f64(label: &str, value: Option<f64>) {
 fn log(message: &str) {
     web_sys::console::log_1(&message.into());
 }
+

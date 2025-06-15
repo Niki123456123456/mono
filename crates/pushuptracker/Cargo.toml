@@ -7,7 +7,7 @@ edition = "2024"
 egui = { workspace = true }
 egui_plot = { workspace = true }
 common = { workspace = true }
-wasm-bindgen = "0.2.100"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
 web-sys = { version = "0.3.70", features = [
   'Window',
   'DeviceMotionEvent',
@@ -17,8 +17,14 @@ web-sys = { version = "0.3.70", features = [
   'console',
   'Performance',
   'PerformanceTiming',
+  'HtmlAnchorElement',
+  "Response",
+  "Request",
+  "RequestInit",
+  "Headers",
 ] }
 js-sys = "0.3"
 ehttp = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
