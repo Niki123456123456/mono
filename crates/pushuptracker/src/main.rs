@@ -7,18 +7,6 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 use web_sys::{DeviceMotionEvent, DeviceOrientationEvent, window};
 
-#[derive(Default)]
-pub struct MEvent {
-    pub a_x: f64,
-    pub a_y: f64,
-    pub a_z: f64,
-    pub r_x: f64,
-    pub r_y: f64,
-    pub r_z: f64,
-    pub i: f64,
-    pub t: f64,
-}
-
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 pub struct MEvents {
     pub a_x: Vec<f64>,
@@ -27,12 +15,11 @@ pub struct MEvents {
     pub r_x: Vec<f64>,
     pub r_y: Vec<f64>,
     pub r_z: Vec<f64>,
-    pub i: Vec<f64>,
-    pub t: Vec<f64>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct PushupWorkout {
     pub raw: MEvents,
+    pub i: f64,
     pub start: f64,
 }
 
@@ -71,7 +58,7 @@ fn main() {
     common::app::run("push-up tracker", |cc| {
         let window = window().unwrap();
 
-        let mut e = Arc::new(Mutex::new(Vec::new()));
+        let mut e = Arc::new(Mutex::new(None::<PushupWorkout>));
 
         let mut motion_closure: Option<Closure<dyn FnMut(_)>> = None;
 
@@ -99,18 +86,21 @@ fn main() {
                     if let Some((((a_x, (a_y, a_z)), (r_x, (r_y, r_z))), i)) =
                         acceleration.zip(rotation).zip(interval)
                     {
-                        let e = MEvent {
-                            a_x,
-                            a_y,
-                            a_z,
-                            r_x,
-                            r_y,
-                            r_z,
-                            i,
-                            t,
-                        };
                         let mut events = e2.lock();
-                        events.push(e);
+                        let mut raw = &mut events
+                            .get_or_insert_with(|| PushupWorkout {
+                                raw: MEvents::default(),
+                                i,
+                                start: start + t,
+                            })
+                            .raw;
+
+                        raw.a_x.push(a_x);
+                        raw.a_y.push(a_y);
+                        raw.a_z.push(a_z);
+                        raw.r_x.push(a_x);
+                        raw.r_y.push(a_y);
+                        raw.r_z.push(a_z);
                     }
                 }) as Box<dyn FnMut(_)>));
 
@@ -124,49 +114,42 @@ fn main() {
 
             {
                 let e = e.lock();
-                if let Some(e) = e.last() {
-                    ui.label(format!("interval: {:?}", e.i));
-                    ui.label(format!("x: {:?}", e.a_x));
-                    ui.label(format!("y: {:?}", e.a_y));
-                    ui.label(format!("z: {:?}", e.a_z));
-                    ui.label(format!("x: {:?}", e.r_x));
-                    ui.label(format!("y: {:?}", e.r_y));
-                    ui.label(format!("z: {:?}", e.r_z));
-                }
-                if ui.button("send").clicked() {
-                    let mut events = MEvents::default();
-                    for event in e.iter() {
-                        events.a_x.push(event.a_x);
-                        events.a_y.push(event.a_y);
-                        events.a_z.push(event.a_z);
-                        events.r_x.push(event.r_x);
-                        events.r_y.push(event.r_y);
-                        events.r_z.push(event.r_z);
-                        events.i.push(event.i);
-                        events.t.push(event.t);
+                if let Some(e) = e.as_ref() {
+                    let mut i = e.raw.a_x.len();
+                    if i > 0 {
+                        i -= 1; // last element
+                        ui.label(format!("i: {:?}", e.i));
+                        ui.label(format!("x: {:?}", e.raw.a_x[i]));
+                        ui.label(format!("y: {:?}", e.raw.a_y[i]));
+                        ui.label(format!("z: {:?}", e.raw.a_z[i]));
+                        ui.label(format!("x: {:?}", e.raw.r_x[i]));
+                        ui.label(format!("y: {:?}", e.raw.r_y[i]));
+                        ui.label(format!("z: {:?}", e.raw.r_z[i]));
+
+                        let size_bytes = std::mem::size_of_val(&e); // slice of the vector
+                        let size_mb = size_bytes as f64 / 1_048_576.0;
+                        ui.label(format!("size: {:.2} MB", size_mb));
                     }
-                    let workout = PushupWorkout { raw: events, start };
-                    let s =
-                        serde_json::to_string(&workout).expect("Failed to serialize workout data");
-                    log(&s);
+                    if ui.button("send").clicked() {
+                        let s =
+                            serde_json::to_string(&e).expect("Failed to serialize workout data");
 
-                    let mut r = ehttp::Request::post(
-                        "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
-                        s.as_bytes().to_vec(),
-                    );
+                        let mut r = ehttp::Request::post(
+                            "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
+                            s.as_bytes().to_vec(),
+                        );
+                        r.headers.insert("Content-Type", "application/json");
+                        r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
+                        r.headers.insert("Accept", "application/json");
+                        r.headers.insert("Surreal-DB", "sport");
+                        r.headers.insert("Surreal-NS", "sport");
 
-                    let body = wasm_bindgen::JsValue::from_serde(&workout).unwrap();
-                    r.headers.insert("Content-Type", "application/json");
-                    r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
-                    r.headers.insert("Accept", "application/json");
-                    r.headers.insert("Surreal-DB", "sport");
-                    r.headers.insert("Surreal-NS", "sport");
-
-                    let ctx2 = ui.ctx().clone();
-                    common::execute(async move {
-                        let response = common::http::fetch(&r).await;
-                        ctx2.request_repaint();
-                    });
+                        let ctx2 = ui.ctx().clone();
+                        common::execute(async move {
+                            let response = common::http::fetch(&r).await;
+                            ctx2.request_repaint();
+                        });
+                    }
                 }
             }
         });
@@ -182,4 +165,3 @@ fn log_f64(label: &str, value: Option<f64>) {
 fn log(message: &str) {
     web_sys::console::log_1(&message.into());
 }
-
