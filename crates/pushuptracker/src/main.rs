@@ -155,7 +155,12 @@ fn main() {
                     r.headers.insert("Accept", "application/json");
                     r.headers.insert("Surreal-DB", "sport");
                     r.headers.insert("Surreal-NS", "sport");
-                   let resp = ehttp::fetch_blocking(&r);
+
+                    let ctx2 = ui.ctx().clone();
+                    common::execute(async move {
+                        let response = common::http::fetch(&r).await;
+                        ctx2.request_repaint();
+                    });
                 }
             }
         });
