@@ -19,6 +19,23 @@ pub struct MEvent {
     pub t: f64,
 }
 
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct MEvents {
+    pub a_x: Vec<f64>,
+    pub a_y: Vec<f64>,
+    pub a_z: Vec<f64>,
+    pub r_x: Vec<f64>,
+    pub r_y: Vec<f64>,
+    pub r_z: Vec<f64>,
+    pub i: Vec<f64>,
+    pub t: Vec<f64>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct PushupWorkout {
+    pub raw: MEvents,
+    pub start: f64,
+}
+
 pub fn request_device_motion_permission() {
     let global = js_sys::global();
 
@@ -41,6 +58,15 @@ pub fn request_device_motion_permission() {
     }
 }
 
+pub fn get_navigation_start() -> f64 {
+    let window = window().expect("no global `window` exists");
+    let performance = window
+        .performance()
+        .expect("performance should be available");
+
+    performance.timing().navigation_start()
+}
+
 fn main() {
     common::app::run("push-up tracker", |cc| {
         let window = window().unwrap();
@@ -48,6 +74,8 @@ fn main() {
         let mut e = Arc::new(Mutex::new(Vec::new()));
 
         let mut motion_closure: Option<Closure<dyn FnMut(_)>> = None;
+
+        let start = get_navigation_start();
 
         return Box::new(move |ctx| {
             let ui = ctx.ui;
@@ -104,6 +132,30 @@ fn main() {
                     ui.label(format!("x: {:?}", e.r_x));
                     ui.label(format!("y: {:?}", e.r_y));
                     ui.label(format!("z: {:?}", e.r_z));
+                }
+                if ui.button("send").clicked() {
+                    let mut events = MEvents::default();
+                    for event in e.iter() {
+                        events.a_x.push(event.a_x);
+                        events.a_y.push(event.a_y);
+                        events.a_z.push(event.a_z);
+                        events.r_x.push(event.r_x);
+                        events.r_y.push(event.r_y);
+                        events.r_z.push(event.r_z);
+                        events.i.push(event.i);
+                        events.t.push(event.t);
+                    }
+                    let workout = PushupWorkout { raw: events, start };
+                    let mut r = ehttp::Request::post(
+                        "https://delicate-weasel-06a8qi6eq5qs39dplfhab6frcc.aws-euw1.surreal.cloud/key/pushups",
+                        serde_json::to_vec(&workout).unwrap(),
+                    );
+                    r.headers.insert("Content-Type", "application/json");
+                    r.headers.insert("Authorization", "Basic YWRtaW46YWRtaW4=");
+                    r.headers.insert("Accept", "application/json");
+                    r.headers.insert("Surreal-DB", "sport");
+                    r.headers.insert("Surreal-NS", "sport");
+                   let resp = ehttp::fetch_blocking(&r);
                 }
             }
         });

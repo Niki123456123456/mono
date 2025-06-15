@@ -20,3 +20,4 @@ bytemuck = { workspace = true }
 obj-exporter = "0.2.0"
 stl_io = "0.8.5"
 gltf = "1.4.1"
+ehttp = { workspace = true }

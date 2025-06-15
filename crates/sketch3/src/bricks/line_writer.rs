@@ -61,7 +61,7 @@ pub fn get_triangles(
     for cmd in &source_file.cmds {
         if let weldr::Command::Comment(cmd) = cmd {
             if cmd.text.starts_with("BFC") {
-                println!("command: {}", cmd.text);
+                //println!("command: {}", cmd.text);
             }
             if cmd.text == "BFC INVERTNEXT" {
                 invert_next = true;
@@ -143,7 +143,7 @@ pub fn get_line_mesh(source_file: &weldr::SourceFile, source_map: &weldr::Source
     return mesh;
 }
 
-pub fn get_indices(triangles: Vec<Vec3>) -> (Vec<u32>, Vec<Vec3>) {
+pub fn get_indices<T: std::cmp::PartialEq>(triangles: Vec<T>) -> (Vec<u32>, Vec<T>) {
     let mut triangles2 = vec![];
     let mut indices = vec![];
     for v in triangles.into_iter() {

@@ -3215,7 +3215,10 @@ dependencies = [
  "common",
  "egui 0.31.1",
  "egui_plot",
+ "ehttp",
  "js-sys",
+ "serde",
+ "serde_json",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -3659,6 +3662,7 @@ dependencies = [
  "common",
  "csv",
  "egui 0.31.1",
+ "ehttp",
  "glam 0.30.3",
  "gltf",
  "obj-exporter",

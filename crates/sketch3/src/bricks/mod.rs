@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Read;
 
 pub mod line_writer;
+pub mod creation;
 
 pub struct Color {
     pub id: u32,

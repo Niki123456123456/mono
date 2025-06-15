@@ -85,7 +85,11 @@ pub fn color_picker(ui: &mut egui::Ui, c: &mut Srgba) {
     c.a = color.a();
 }
 
+// https://rebrickable.com/downloads/
+
 fn main() {
+    crate::bricks::creation::create();
+
     run("sketch3", |c| {
         let mut camera = Camera::new_perspective(
             Viewport::new_at_origo(512, 512),
