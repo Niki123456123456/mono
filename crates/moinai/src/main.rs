@@ -66,7 +66,7 @@ fn main() {
                     match articles {
                         Ok(articles) => {
                             ui.horizontal(|ui| {
-                                return;
+                                // return;
                                 let mut query = s.query.clone();
                                 let resp = egui::TextEdit::singleline(&mut query)
                                     .return_key(Some(egui::KeyboardShortcut::new(
