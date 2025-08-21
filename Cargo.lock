@@ -4063,6 +4063,7 @@ dependencies = [
  "base64 0.22.1",
  "common",
  "egui 0.31.1",
+ "serde_json",
  "sha2",
  "urlencoding",
  "uuid",

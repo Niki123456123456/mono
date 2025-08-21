@@ -10,11 +10,19 @@ fn main() {
             Some(&|data| urlencoding::decode(data).unwrap_or_default().to_string()),
         );
 
-        let mut base64ncoding = Encoding::new(
+        let mut base64encoding = Encoding::new(
             "Base64 encoding",
             &|data| base64::encode(data),
             Some(&|data| {
                 String::from_utf8(base64::decode(data).unwrap_or_default()).unwrap_or_default()
+            }),
+        );
+
+        let mut jsonencoding = Encoding::new(
+            "Json encoding",
+            &|data|  serde_json::to_string(data).unwrap_or_default(),
+            Some(&|data| {
+               serde_json::from_str::<String>(data).unwrap_or_default()
             }),
         );
 
@@ -38,7 +46,8 @@ fn main() {
             });
 
             urlencoding.show(ui);
-            base64ncoding.show(ui);
+            base64encoding.show(ui);
+            jsonencoding.show(ui);
             sha256ncoding.show(ui);
         });
     });
