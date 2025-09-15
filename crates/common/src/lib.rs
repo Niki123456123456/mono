@@ -6,6 +6,8 @@ pub mod filesave;
 #[cfg(feature = "query")]
 pub mod query;
 
+use std::sync::Arc;
+
 pub use remove_where::RemoveWhere;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -78,4 +80,10 @@ pub fn thousands_sep(n: usize) -> String {
     }
 
     result.chars().rev().collect()
+}
+
+enum Lambda<Symbol>{
+    Symbol{s : Symbol},
+    Func{s : Symbol, f : Arc<Self>},
+    Call{func : Arc<Self>, arg : Arc<Self>}
 }

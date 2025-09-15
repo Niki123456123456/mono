@@ -1,0 +1,10 @@
+[package]
+name = "remember"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+egui = { workspace = true }
+common = { workspace = true }
+libheif-rs = { version = "2.3.0", features = ["embedded-libheif"] }
+kamadak-exif = "0.6.1"
