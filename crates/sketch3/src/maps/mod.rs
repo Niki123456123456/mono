@@ -164,7 +164,6 @@ impl TileCache {
                 position,
             );
             let s = ViewState {
-                // frustum : collision::Frustum::from_matrix4(camera.projection() * camera.view()).unwrap(),
                 frustum,
                 planes: extract_planes(&three_d_to_glam(&(camera.projection() * camera.view()))),
                 position: three_d_vec3_to_glam_d(&camera.position()),
@@ -387,7 +386,7 @@ pub fn get_content(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<T
         let rotation = glam::quat(r[0], r[1], r[2], r[3]);
         let scale = glam::vec3(s[0], s[1], s[2]);
 
-        let mat = glam::Mat4::from_scale_rotation_translation(scale, rotation, translation);// * glam::Mat4::from_scale(glam::Vec3::new(1.0, -1.0, 1.0));
+        let mat = glam::Mat4::from_scale_rotation_translation(scale, rotation, translation);
 
         let mesh = doc.meshes().last().unwrap();
         let prim = mesh.primitives().last().unwrap();
@@ -420,7 +419,6 @@ pub fn get_content(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<T
             p.positions
                 .unwrap()
                 .iter()
-                .map(|v| mat * glam::vec4(v[0], v[1], v[2], 1.) )
                 .map(|v| three_d::vec3(v[0], v[1], v[2]))
                 .collect(),
         );
@@ -447,7 +445,7 @@ pub fn get_content(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<T
                 .collect(),
         );
 
-        sender.send(TileContent { mesh, texture, mat: glam::Mat4::IDENTITY });
+        sender.send(TileContent { mesh, texture, mat });
     });
     return promise;
 }
