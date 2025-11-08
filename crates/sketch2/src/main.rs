@@ -2,8 +2,8 @@ use egui_map_view::{Map, config::OpenStreetMapConfig};
 
 fn main() {
     common::app::run("sketch2", |cc| {
-        // let mut map = Map::new(OpenStreetMapConfig::default());
-        let mut map = Map::new(TestMapConfig{});
+        let mut map = Map::new(OpenStreetMapConfig::default());
+        //let mut map = Map::new(TestMapConfig{});
         return Box::new(move |mut ctx| {
             let ui = ctx.get_ui();
             ui.add_sized(ui.available_size_before_wrap(), &mut map);

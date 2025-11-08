@@ -6,8 +6,11 @@ use std::{
 use bricks::line_writer::LineMesh;
 use three_d::*;
 
+use crate::maps::TileCache;
+
 pub mod bricks;
 pub mod export;
+pub mod maps;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -15,6 +18,7 @@ pub struct SelectedPart {
     pub triangles: CpuMesh,
     pub lines_gpu: bricks::line_writer::LineMesh,
     pub triangles_gpu: Mesh,
+    pub tex: Option<three_d::Texture2DRef>,
 }
 
 pub fn remove_transformation(p: &mut three_d_asset::Primitive) {
@@ -87,23 +91,106 @@ pub fn color_picker(ui: &mut egui::Ui, c: &mut Srgba) {
 
 // https://rebrickable.com/downloads/
 
+fn bricks_ui(
+    ui: &mut egui::Ui,
+    selected_part: &mut Option<SelectedPart>,
+    source_map: &mut weldr::SourceMap,
+    ctx3d: &Context,
+    resolver: &bricks::ZipResolver,
+) {
+    ui.heading("Part Categories");
+
+    if let Some(selected_part) = selected_part.as_mut() {
+        if ui.button("Export obj").clicked() {
+            export::obj::export(
+                &selected_part.lines,
+                &selected_part.triangles,
+                &selected_part.part.name,
+            );
+        }
+        if ui.button("Export stl").clicked() {
+            export::stl::export(&selected_part.lines, &selected_part.part.name);
+        }
+        if ui.button("Export gltf").clicked() {
+            export::gltf::export(&selected_part.triangles, &selected_part.part.name);
+        }
+    }
+
+    // color_picker(ui, &mut background_color);
+    // color_picker(ui, &mut face_color);
+    // color_picker(ui, &mut line_color);
+
+    if let Some(selected_part) = &selected_part {
+        ui.label(format!(
+            "Selected part: {}: {}",
+            selected_part.part.number, selected_part.part.name
+        ));
+    }
+    let mut scroll_height = ui.available_height();
+
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        for x in bricks::PART_CATEGORIES.iter() {
+            ui.collapsing(&x.name, |ui| {
+                for part in x.parts.iter() {
+                    if true && part.number.contains("pr") {
+                        continue;
+                    }
+                    if ui
+                        .label(format!("{}: {}", part.number, part.name))
+                        .clicked()
+                    {
+                        match weldr::parse(&format!("{}.dat", part.number), resolver, source_map) {
+                            Ok(x) => {
+                                let source_file = source_map.get(&x).unwrap();
+
+                                let lines =
+                                    bricks::line_writer::get_line_mesh(source_file, &source_map);
+                                let triangles = bricks::line_writer::get_triangle_mesh(
+                                    source_file,
+                                    &source_map,
+                                );
+
+                                let lines_gpu = bricks::line_writer::LineMesh::new(&ctx3d, &lines);
+                                let triangles_gpu = three_d::Mesh::new(&ctx3d, &triangles);
+
+                                *selected_part = Some(SelectedPart {
+                                    part: part.clone(),
+                                    lines,
+                                    triangles,
+                                    lines_gpu,
+                                    triangles_gpu,
+                                    tex: None,
+                                });
+                            }
+                            Err(err) => {
+                                println!("Error parsing part {}: {}", part.number, err);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
 fn main() {
     //crate::bricks::creation::create();
 
     run("sketch3", |c| {
         let mut camera = Camera::new_perspective(
             Viewport::new_at_origo(512, 512),
-            vec3(5.0, 2.0, 2.5),
-            vec3(0.0, 0.0, -0.5),
+            vec3(47702560.0, 0.0, -9691560.0),
+            vec3(0.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0),
             degrees(45.0),
-            0.1,
-            1000.0,
+            100.,        //0.1,
+            1000000000., //1000.0,
         );
 
-        let mut control = OrbitControl::new(camera.target(), 1.0, 100000.0);
+        let mut control =
+            crate::maps::OrbitControl::new(camera.target(), 6_378_000.0, 50_000_000.0);
 
-        let mut background_color =  Srgba::new_opaque(27, 27, 27);
+        let mut background_color = Srgba::new_opaque(27, 27, 27);
         let mut face_color = Srgba::new_opaque(74, 74, 74);
         let mut line_color = Srgba::new_opaque(159, 159, 159);
 
@@ -138,11 +225,35 @@ fn main() {
                 ..Default::default()
             },
         );
+        let max_distane = 50_000_000.;
 
-        let x_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_x()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_x()*100.]);
-        let y_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_y()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_y()*100.]);
-        let z_line = LineMesh::from_vector(&c.ctx, vec![-Vec3::unit_z()*100., Vec3::zero(),Vec3::zero(), Vec3::unit_z()*100.]);
-
+        let x_line = LineMesh::from_vector(
+            &c.ctx,
+            vec![
+                -Vec3::unit_x() * max_distane,
+                Vec3::zero(),
+                Vec3::zero(),
+                Vec3::unit_x() * max_distane,
+            ],
+        );
+        let y_line = LineMesh::from_vector(
+            &c.ctx,
+            vec![
+                -Vec3::unit_y() * max_distane,
+                Vec3::zero(),
+                Vec3::zero(),
+                Vec3::unit_y() * max_distane,
+            ],
+        );
+        let z_line = LineMesh::from_vector(
+            &c.ctx,
+            vec![
+                -Vec3::unit_z() * max_distane,
+                Vec3::zero(),
+                Vec3::zero(),
+                Vec3::unit_z() * max_distane,
+            ],
+        );
 
         let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
 
@@ -152,95 +263,50 @@ fn main() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
+         let mut key = "".to_string();
+
+
+        let mut tile_cache = TileCache::new(&c.ctx, key.clone());
+
+        let mut shown_tiles = 0;
+
+       
         return Box::new(move |mut ctx| {
             let mut panel_width = 0.0;
 
             let ctx3d = ctx.frame_input.context.clone();
 
+            tile_cache.load(&ctx3d);
+
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(egui_ctx, |ui| {
-                    ui.heading("Part Categories");
-
-                    if let Some(selected_part) = selected_part.as_mut() {
-                        if ui.button("Export obj").clicked() {
-                            export::obj::export(&selected_part.lines, &selected_part.triangles, &selected_part.part.name);
-                        }
-                        if ui.button("Export stl").clicked() {
-                            export::stl::export(&selected_part.lines,  &selected_part.part.name);
-                        }
-                        if ui.button("Export gltf").clicked() {
-                            export::gltf::export(&selected_part.triangles,  &selected_part.part.name);
-                        }
-                    }
-
-                    color_picker(ui, &mut background_color);
-                    color_picker(ui, &mut face_color);
-                    color_picker(ui, &mut line_color);
-
-                    if let Some(selected_part) = &selected_part {
-                        ui.label(format!(
-                            "Selected part: {}: {}",
-                            selected_part.part.number, selected_part.part.name
-                        ));
-                    }
-                    let mut scroll_height = ui.available_height();
-
-                    ScrollArea::vertical().show(ui, |ui| {
-                        for x in bricks::PART_CATEGORIES.iter() {
-                            ui.collapsing(&x.name, |ui| {
-                                for part in x.parts.iter() {
-                                    if !include_pr && part.number.contains("pr") {
-                                        continue;
-                                    }
-                                    if ui
-                                        .label(format!("{}: {}", part.number, part.name))
-                                        .clicked()
-                                    {
-                                        match weldr::parse(
-                                            &format!("{}.dat", part.number),
-                                            &resolver,
-                                            &mut source_map,
-                                        ) {
-                                            Ok(x) => {
-                                                let source_file = source_map.get(&x).unwrap();
-
-                                                let lines = bricks::line_writer::get_line_mesh(
-                                                    source_file,
-                                                    &source_map,
-                                                );
-                                                let triangles =
-                                                    bricks::line_writer::get_triangle_mesh(
-                                                        source_file,
-                                                        &source_map,
-                                                    );
-
-                                                let lines_gpu = bricks::line_writer::LineMesh::new(
-                                                    &ctx3d, &lines,
-                                                );
-                                                let triangles_gpu =
-                                                    three_d::Mesh::new(&ctx3d, &triangles);
-
-                                                selected_part = Some(SelectedPart {
-                                                    part: part.clone(),
-                                                    lines,
-                                                    triangles,
-                                                    lines_gpu,
-                                                    triangles_gpu,
-                                                });
-                                            }
-                                            Err(err) => {
-                                                println!(
-                                                    "Error parsing part {}: {}",
-                                                    part.number, err
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            });
+                    ui.horizontal(|ui| {
+                        ui.label("api key");
+                        egui::TextEdit::singleline(&mut key).show(ui);
+                        if ui.button("run").clicked() {
+                            // tile_cache.set_client(key.clone());
                         }
                     });
+
+                    let camera_position = camera.position();
+                    ui.label(format!(
+                        "p {} {} {}",
+                        camera_position.x, camera_position.y, camera_position.z
+                    ));
+                    let target = camera.target();
+                    ui.label(format!("t {} {} {}", target.x, target.y, target.z));
+                    let (longlat, ele) =
+                        maps::xyz_to_longlat(maps::three_d_vec3_to_glam_d(&camera_position));
+                    let elef = if ele > 10_000. {
+                        format!("{:.0} km", ele / 1000.)
+                    } else if ele > 1_000. {
+                        format!("{:.1} km", ele / 1000.)
+                    } else {
+                        format!("{:.0} m", ele)
+                    };
+                    ui.label(format!("{:.1}° {:.1}° ele {}", longlat.x, longlat.y, elef));
+                    ui.label(format!("tiles {}", shown_tiles));
                 });
                 panel_width = egui_ctx.used_rect().width();
             });
@@ -269,21 +335,11 @@ fn main() {
                     1.0,
                 ))
                 .write(|| {
-                    x_line.render_with_material(
-                        &red,
-                        &camera,
-                        &[&light],
-                    );
-                    y_line.render_with_material(
-                        &green,
-                        &camera,
-                        &[&light],
-                    );
-                    z_line.render_with_material(
-                        &blue,
-                        &camera,
-                        &[&light],
-                    );
+                    x_line.render_with_material(&red, &camera, &[&light]);
+                    y_line.render_with_material(&green, &camera, &[&light]);
+                    z_line.render_with_material(&blue, &camera, &[&light]);
+
+                    shown_tiles = tile_cache.render(&camera, &[&light]);
 
                     if let Some(selected_part) = &selected_part {
                         unsafe {
@@ -292,6 +348,10 @@ fn main() {
                         }
 
                         material.color = face_color;
+                        material.texture = selected_part.tex.clone();
+                        if material.texture.is_some() {
+                            material.color = line_color;
+                        }
                         selected_part.triangles_gpu.render_with_material(
                             &material,
                             &camera,
@@ -303,6 +363,7 @@ fn main() {
                         }
 
                         material.color = line_color;
+                        material.texture = None;
                         selected_part
                             .lines_gpu
                             .render_with_material(&material, &camera, &[&light]);
