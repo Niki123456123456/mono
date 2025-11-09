@@ -1332,6 +1332,7 @@ checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
 [[package]]
 name = "draco-gltf-rs"
 version = "0.1.0"
+source = "git+https://github.com/Niki123456123456/draco-gltf-rs.git#138d2905163d3178aae978b6106b9f6e1114edce"
 dependencies = [
  "draco_decoder",
  "gltf",

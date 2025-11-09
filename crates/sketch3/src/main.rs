@@ -6,7 +6,7 @@ use std::{
 use bricks::line_writer::LineMesh;
 use three_d::*;
 
-use crate::maps::TileCache;
+use crate::maps::{Place, TileCache};
 
 pub mod bricks;
 pub mod export;
@@ -188,7 +188,7 @@ fn main() {
         );
 
         let mut control =
-            crate::maps::OrbitControl::new(camera.target(), 6_378_000.0, 50_000_000.0);
+            crate::maps::OrbitControl::new(camera.target(), 6_378_000.0 - 15_000., 50_000_000.0);
 
         let mut background_color = Srgba::new_opaque(27, 27, 27);
         let mut face_color = Srgba::new_opaque(74, 74, 74);
@@ -263,14 +263,15 @@ fn main() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
-         let mut key = "".to_string();
+        let mut key = "".to_string();
+        let mut search = "".to_string();
 
+        let mut search_promise = None;
 
         let mut tile_cache = TileCache::new(&c.ctx, key.clone());
 
         let mut shown_tiles = 0;
 
-       
         return Box::new(move |mut ctx| {
             let mut panel_width = 0.0;
 
@@ -296,8 +297,8 @@ fn main() {
                     ));
                     let target = camera.target();
                     ui.label(format!("t {} {} {}", target.x, target.y, target.z));
-                    let (longlat, ele) =
-                        maps::xyz_to_longlat(maps::three_d_vec3_to_glam_d(&camera_position));
+                    let (lat, lon, ele) =
+                        maps::xyz_to_latlonele(maps::three_d_vec3_to_glam_d(&camera_position));
                     let elef = if ele > 10_000. {
                         format!("{:.0} km", ele / 1000.)
                     } else if ele > 1_000. {
@@ -305,8 +306,47 @@ fn main() {
                     } else {
                         format!("{:.0} m", ele)
                     };
-                    ui.label(format!("{:.1}° {:.1}° ele {}", longlat.x, longlat.y, elef));
+                    ui.label(format!("lat {:.1}° lon {:.1}° ele {}", lat, lon, elef));
                     ui.label(format!("tiles {}", shown_tiles));
+
+                    ui.horizontal(|ui| {
+                        ui.label("🔍");
+                        egui::TextEdit::singleline(&mut search)
+                            .return_key(Some(egui::KeyboardShortcut::new(
+                                egui::Modifiers::NONE,
+                                egui::Key::Enter,
+                            )))
+                            .hint_text("search")
+                            .show(ui);
+                        if ui.button("🔍").clicked() {
+                            search_promise = Some(crate::maps::search(search.clone()))
+                        }
+                    });
+
+                    if let Some(search_promise) = &search_promise {
+                        if let Some(places) = search_promise.ready() {
+                            for place in places {
+                                ui.horizontal(|ui| {
+                                    ui.label(&place.name);
+                                    if ui.button("visit").clicked() {
+                                        let coodinates = maps::latlon_to_xyz(place.lat, place.lon,
+                                            1000.,
+                                        );
+                                        camera = Camera::new_perspective(
+                                            Viewport::new_at_origo(512, 512),
+                                            maps::glam_d_vec3_to_three_d(&coodinates),
+                                            vec3(0.0, 0.0, 0.0),
+                                            vec3(0.0, 1.0, 0.0),
+                                            degrees(45.0),
+                                            100.,        //0.1,
+                                            1000000000., //1000.0,
+                                        );
+                                    }
+                                });
+                                ui.label(format!("{:.1}° {:.1}°", place.lat, place.lon));
+                            }
+                        }
+                    }
                 });
                 panel_width = egui_ctx.used_rect().width();
             });

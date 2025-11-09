@@ -8,6 +8,9 @@ pub use tiles::*;
 mod orbitcontrol;
 pub use orbitcontrol::*;
 
+mod search;
+pub use search::*;
+
 pub fn glam_to_three_d(mat: &glam::Mat4) -> three_d::Mat4 {
     let cols = mat.to_cols_array();
     three_d::Mat4::new(
@@ -45,6 +48,10 @@ pub fn three_d_vec3_to_glam(vec: &three_d::Vec3) -> glam::Vec3 {
     glam::Vec3::new(vec.x, vec.y, vec.z)
 }
 
+pub fn glam_d_vec3_to_three_d(vec: &glam::DVec3) -> three_d::Vec3 {
+    three_d::Vec3::new(vec.x as f32, vec.y as f32, vec.z as f32)
+}
+
 pub struct TileContent {
     mesh: three_d::CpuMesh,
     texture: three_d::CpuTexture,
@@ -58,8 +65,8 @@ pub struct TileContentGPU {
 
 pub enum TileContentState {
     None,
-    Loading(poll_promise::Promise<TileContent>),
-    Ready(TileContentGPU),
+    Loading(poll_promise::Promise<Vec<TileContent>>),
+    Ready(Vec<TileContentGPU>),
 }
 
 pub struct TileCache {
@@ -72,7 +79,7 @@ pub struct TileCache {
 }
 
 impl TileCache {
-    pub fn new(ctx3d: &three_d::Context, key : String) -> Self {
+    pub fn new(ctx3d: &three_d::Context, key: String) -> Self {
         let mut m = three_d::ColorMaterial::new(
             ctx3d,
             &three_d::CpuMaterial {
@@ -141,15 +148,21 @@ impl TileCache {
             for (_, t) in self.cache.iter_mut() {
                 if let TileContentState::Loading(l) = &mut t.content {
                     if let Some(r) = l.ready_mut() {
-                        let mut mesh_gpu = three_d::Mesh::new(&ctx3d, &r.mesh);
-                        mesh_gpu.set_transformation(glam_to_three_d(&r.mat));
+                        let mut contents = vec![];
 
-                        let texture_gpu =
-                            three_d::Texture2DRef::from_cpu_texture(&ctx3d, &r.texture);
-                        t.content = TileContentState::Ready(TileContentGPU {
-                            mesh_gpu,
-                            texture_gpu,
-                        })
+                        for r in r.iter() {
+                            let mut mesh_gpu = three_d::Mesh::new(&ctx3d, &r.mesh);
+                            mesh_gpu.set_transformation(glam_to_three_d(&r.mat));
+
+                            let texture_gpu =
+                                three_d::Texture2DRef::from_cpu_texture(&ctx3d, &r.texture);
+
+                            contents.push(TileContentGPU {
+                                mesh_gpu,
+                                texture_gpu,
+                            });
+                        }
+                        t.content = TileContentState::Ready(contents);
                     }
                 }
             }
@@ -189,7 +202,7 @@ impl TileCache {
                     &mut counter,
                     &client,
                     &mut self.node_promises,
-                    10,
+                    20,
                 );
             }
             return counter;
@@ -215,16 +228,16 @@ pub fn render_tile(
 
     if let Some(t) = cache.get_mut(id) {
         let is_visible = t.bv.is_visible(s.position) && t.bv.intersects_frustum(&s.frustum);
-       
+
         if is_visible {
-            let meet_sse =  s.does_tile_meet_sse(t);
+            let meet_sse = s.does_tile_meet_sse(t);
 
             // && t.children.iter().all(|c| cache.get(c).is_some_and(||))
             if !t.children.is_empty() && !meet_sse && max_level > 0 {
                 childern = t.children.clone();
             } else {
                 if let TileContentState::None = &t.content {
-                    t.content = TileContentState::Loading(get_content(id.clone(), rest_client));
+                    t.content = TileContentState::Loading(get_contents(id.clone(), rest_client));
                 }
                 if !meet_sse && !t.child_options.is_empty() && max_level > 0 {
                     for c in t.child_options.iter() {
@@ -233,12 +246,14 @@ pub fn render_tile(
                     t.child_options.clear();
                 }
                 let mut m = material.clone();
-                if let TileContentState::Ready(c) = &t.content {
+                if let TileContentState::Ready(contents) = &t.content {
                     let mut m = material.clone();
-                    m.texture = Some(c.texture_gpu.clone());
-                    three_d::Geometry::render_with_material(&c.mesh_gpu, &m, camera, lights);
+                    for c in contents {
+                        m.texture = Some(c.texture_gpu.clone());
+                        three_d::Geometry::render_with_material(&c.mesh_gpu, &m, camera, lights);
+                    }
                 }
-                 *counter += 1;
+                *counter += 1;
                 m.texture = None;
                 if is_visible {
                     m.color = three_d::Srgba::WHITE;
@@ -365,7 +380,7 @@ pub fn get_node(
     return promise;
 }
 
-pub fn get_content(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<TileContent> {
+pub fn get_contents(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<Vec<TileContent>> {
     let (sender, promise) = poll_promise::Promise::new();
 
     let c = c.clone();
@@ -388,66 +403,81 @@ pub fn get_content(path: String, c: &Arc<RestClient>) -> poll_promise::Promise<T
 
         let mat = glam::Mat4::from_scale_rotation_translation(scale, rotation, translation);
 
-        let mesh = doc.meshes().last().unwrap();
-        let prim = mesh.primitives().last().unwrap();
+        let source_mesh = doc.meshes().last().unwrap();
+        let primitives: Vec<_> = source_mesh.primitives().collect();
+        let images: Vec<_> = image_data.iter().collect();
 
-        let mut p: draco_gltf_rs::DecodedPrimitive = draco_gltf_rs::decode_draco(
-            &prim,
-            &doc,
-            &buffer_data,
-            &vec![
-                draco_gltf_rs::AttrInfo {
-                    unique_id: 0,
-                    dim: 3,
-                    data_type: 9,
-                },
-                draco_gltf_rs::AttrInfo {
-                    unique_id: 1,
-                    dim: 2,
-                    data_type: 9,
-                },
-            ],
-        )
-        .await
-        .unwrap();
+        let mut contents = vec![];
 
-        let mut mesh = three_d::CpuMesh::default();
+        for (i, prim) in source_mesh.primitives().enumerate() {
+            contents.push(get_content(&prim, mat, &images[i], &doc, &buffer_data).await);
+        }
 
-
-        mesh.indices = three_d::Indices::U32(p.indices);
-        mesh.positions = three_d::Positions::F32(
-            p.positions
-                .unwrap()
-                .iter()
-                .map(|v| three_d::vec3(v[0], v[1], v[2]))
-                .collect(),
-        );
-        mesh.uvs = Some(
-            p.texcoords[&0]
-                .iter()
-                .map(|v| three_d::vec2(v[0], v[1]))
-                .collect(),
-        );
-
-        let image = image_data.into_iter().last().unwrap();
-
-        let mut texture = three_d::CpuTexture::default();
-        texture.width = image.width;
-        texture.height = image.height;
-        texture.wrap_s = three_d::Wrapping::ClampToEdge;
-        texture.wrap_t = three_d::Wrapping::ClampToEdge;
-
-        texture.data = three_d::TextureData::RgbU8(
-            image
-                .pixels
-                .chunks_exact(3)
-                .map(|chunk| [chunk[0], chunk[1], chunk[2]])
-                .collect(),
-        );
-
-        sender.send(TileContent { mesh, texture, mat });
+        sender.send(contents);
     });
     return promise;
+}
+
+pub async fn get_content(
+    prim: &gltf::Primitive<'_>,
+    mat: glam::Mat4,
+    image: &gltf::image::Data,
+    doc: &gltf::Document,
+    buffer_data: &Vec<gltf::buffer::Data>,
+) -> TileContent {
+    let mut p: draco_gltf_rs::DecodedPrimitive = draco_gltf_rs::decode_draco(
+        &prim,
+        doc,
+        buffer_data,
+        &vec![
+            draco_gltf_rs::AttrInfo {
+                unique_id: 0,
+                dim: 3,
+                data_type: 9,
+            },
+            draco_gltf_rs::AttrInfo {
+                unique_id: 1,
+                dim: 2,
+                data_type: 9,
+            },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let mut mesh = three_d::CpuMesh::default();
+    mesh.indices = three_d::Indices::U32(p.indices);
+    mesh.positions = three_d::Positions::F32(
+        p.positions
+            .unwrap()
+            .iter()
+            .map(|v| three_d::vec3(v[0], v[1], v[2]))
+            .collect(),
+    );
+    mesh.uvs = Some(
+        p.texcoords
+            .get_mut(&0)
+            .unwrap()
+            .iter()
+            .map(|v| three_d::vec2(v[0], v[1]))
+            .collect(),
+    );
+
+    let mut texture = three_d::CpuTexture::default();
+    texture.width = image.width;
+    texture.height = image.height;
+    texture.wrap_s = three_d::Wrapping::ClampToEdge;
+    texture.wrap_t = three_d::Wrapping::ClampToEdge;
+
+    texture.data = three_d::TextureData::RgbU8(
+        image
+            .pixels
+            .chunks_exact(3)
+            .map(|chunk| [chunk[0], chunk[1], chunk[2]])
+            .collect(),
+    );
+
+    return TileContent { mesh, texture, mat };
 }
 
 pub fn obb_in_frustum(planes: &[Plane; 6], obb: &BoundingVolume) -> bool {

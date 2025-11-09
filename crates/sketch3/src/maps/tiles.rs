@@ -10,35 +10,27 @@ pub struct BoundingVolume {
     pub z_axis: glam::DVec3, // half
 }
 
-pub fn longlat_to_xyz(c: glam::DVec2, h: f64) -> glam::DVec3 {
+pub fn latlon_to_xyz(lat : f64, lon : f64, h: f64) -> glam::DVec3 {
     let tea_party = geoconv::Lle::<geoconv::Wgs84>::new(
-        geoconv::Degrees::new(c.y),
-        geoconv::Degrees::new(c.x),
+        geoconv::Degrees::new(lat),
+        geoconv::Degrees::new(lon),
         geoconv::Meters::new(h),
     );
     use geoconv::CoordinateSystem;
     let r = geoconv::Wgs84::lle_to_xyz(&tea_party);
 
-    return glam::dvec3(r.x.as_float(), r.y.as_float(), r.z.as_float());
+    return glam::dvec3(r.x.as_float(), r.z.as_float(), -r.y.as_float());
 }
 
-pub fn xyz_to_longlat(v: glam::DVec3) -> (glam::DVec2, f64) {
-    // Create an XYZ coordinate in the WGS84 system
+pub fn xyz_to_latlonele(v: glam::DVec3) -> (f64, f64, f64) {
     let xyz = geoconv::Xyz {
         x: geoconv::Meters::new(v.x),
-        y: geoconv::Meters::new(v.y),
-        z: geoconv::Meters::new(v.z),
-    };
-
+        y: geoconv::Meters::new(v.z),
+        z: geoconv::Meters::new(-v.y),
+    }; // glam::DVec3::new(arr[0], arr[2], -arr[1]),
     use geoconv::CoordinateSystem;
-    // Convert to geodetic (latitude, longitude, elevation)
     let lle: geoconv::Lle<geoconv::Wgs84> = geoconv::Wgs84::xyz_to_lle(&xyz);
-
-    // Return as (longitude, latitude) in degrees, and height in meters
-    let longlat = glam::dvec2(lle.longitude.as_float(), lle.latitude.as_float());
-    let h = lle.elevation.as_float();
-
-    (longlat, h)
+    (-lle.latitude.as_float(), -lle.longitude.as_float(), lle.elevation.as_float())
 }
 
 impl BoundingVolume {
@@ -89,9 +81,9 @@ impl BoundingVolume {
         let c = glam::dvec2(lon2, lat1);
         let h = 0.;
 
-        let a = longlat_to_xyz(a, h);
-        let b = longlat_to_xyz(b, h);
-        let c = longlat_to_xyz(c, h);
+        let a = latlon_to_xyz(lat1, lon1, h);
+        let b = latlon_to_xyz(lat2, lon1, h);
+        let c = latlon_to_xyz(lat1, lon2, h);
 
         let ab = (b - a) * 0.5;
         let ac = (c - a) * 0.5;
@@ -469,9 +461,9 @@ impl RestClient {
         res.bytes
     }
 
-    pub fn get_glbs(&self, v: &BoundingVolume) -> Vec<GLBInfo> {
+    pub async  fn get_glbs(&self, v: &BoundingVolume) -> Vec<GLBInfo> {
         let mut glbs = vec![];
-        self.root.get_glbs(self, v, &mut glbs);
+        self.root.get_glbs(self, v, &mut glbs).await;
         return glbs;
     }
 }

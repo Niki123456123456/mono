@@ -21,8 +21,8 @@ obj-exporter = "0.2.0"
 stl_io = "0.8.5"
 gltf = "1.4.1"
 ehttp = { workspace = true }
-# draco-gltf-rs = { git = "https://github.com/Niki123456123456/draco-gltf-rs.git" }
-draco-gltf-rs = {path = "/Users/nnord/uni/projects/draco-gltf-rs"}
+draco-gltf-rs = { git = "https://github.com/Niki123456123456/draco-gltf-rs.git" }
+# draco-gltf-rs = {path = "/Users/nnord/uni/projects/draco-gltf-rs"}
 reqwest = "0.11"
 geoconv = "0.7.1"
 
