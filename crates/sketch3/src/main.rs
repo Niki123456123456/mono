@@ -177,15 +177,18 @@ fn main() {
     //crate::bricks::creation::create();
 
     run("sketch3", |c| {
+
         let mut camera = Camera::new_perspective(
             Viewport::new_at_origo(512, 512),
             vec3(47702560.0, 0.0, -9691560.0),
             vec3(0.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0),
+            vec3(0., 0., 1.),
             degrees(45.0),
             100.,        //0.1,
             1000000000., //1000.0,
         );
+
+        
 
         let mut control =
             crate::maps::OrbitControl::new(camera.target(), 6_378_000.0 - 15_000., 50_000_000.0);
@@ -263,7 +266,7 @@ fn main() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
-        let mut key = "".to_string();
+        let mut key = "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string();
         let mut search = "".to_string();
 
         let mut search_promise = None;
@@ -329,14 +332,13 @@ fn main() {
                                 ui.horizontal(|ui| {
                                     ui.label(&place.name);
                                     if ui.button("visit").clicked() {
-                                        let coodinates = maps::latlon_to_xyz(place.lat, place.lon,
-                                            1000.,
-                                        );
+                                        let coodinates =
+                                            maps::latlon_to_xyz(place.lat, place.lon, 1000.);
                                         camera = Camera::new_perspective(
                                             Viewport::new_at_origo(512, 512),
                                             maps::glam_d_vec3_to_three_d(&coodinates),
                                             vec3(0.0, 0.0, 0.0),
-                                            vec3(0.0, 1.0, 0.0),
+                                            vec3(0.0, 0.0, 1.0),
                                             degrees(45.0),
                                             100.,        //0.1,
                                             1000000000., //1000.0,

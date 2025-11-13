@@ -445,12 +445,21 @@ pub async fn get_content(
     .await
     .unwrap();
 
+    let m = glam::Mat4::from_cols_array_2d(&[
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, -1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]);
+    let m_inverse = m.inverse();
+
     let mut mesh = three_d::CpuMesh::default();
     mesh.indices = three_d::Indices::U32(p.indices);
     mesh.positions = three_d::Positions::F32(
         p.positions
             .unwrap()
             .iter()
+            // .map(|v| m * mat * glam::vec4(v[0], v[1], v[2], 1.))
             .map(|v| three_d::vec3(v[0], v[1], v[2]))
             .collect(),
     );
@@ -477,7 +486,11 @@ pub async fn get_content(
             .collect(),
     );
 
-    return TileContent { mesh, texture, mat };
+    return TileContent {
+        mesh,
+        texture,
+        mat: m * mat,
+    };
 }
 
 pub fn obb_in_frustum(planes: &[Plane; 6], obb: &BoundingVolume) -> bool {

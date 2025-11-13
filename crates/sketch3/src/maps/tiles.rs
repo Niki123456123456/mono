@@ -19,18 +19,18 @@ pub fn latlon_to_xyz(lat : f64, lon : f64, h: f64) -> glam::DVec3 {
     use geoconv::CoordinateSystem;
     let r = geoconv::Wgs84::lle_to_xyz(&tea_party);
 
-    return glam::dvec3(r.x.as_float(), r.z.as_float(), -r.y.as_float());
+    return glam::dvec3(r.x.as_float(), r.y.as_float(), r.z.as_float());
 }
 
 pub fn xyz_to_latlonele(v: glam::DVec3) -> (f64, f64, f64) {
     let xyz = geoconv::Xyz {
         x: geoconv::Meters::new(v.x),
-        y: geoconv::Meters::new(v.z),
-        z: geoconv::Meters::new(-v.y),
+        y: geoconv::Meters::new(v.y),
+        z: geoconv::Meters::new(v.z),
     }; // glam::DVec3::new(arr[0], arr[2], -arr[1]),
     use geoconv::CoordinateSystem;
     let lle: geoconv::Lle<geoconv::Wgs84> = geoconv::Wgs84::xyz_to_lle(&xyz);
-    (-lle.latitude.as_float(), -lle.longitude.as_float(), lle.elevation.as_float())
+    (lle.latitude.as_float(), lle.longitude.as_float(), lle.elevation.as_float())
 }
 
 impl BoundingVolume {
@@ -335,10 +335,14 @@ impl<'de> serde::Deserialize<'de> for BoundingVolume {
         let helper = BoxOnly::deserialize(deserializer)?;
         let arr = helper.b;
         Ok(Self {
-            center: glam::DVec3::new(arr[0], arr[2], -arr[1]),
-            x_axis: glam::DVec3::new(arr[3], arr[5], -arr[4]),
-            y_axis: glam::DVec3::new(arr[6], arr[8], -arr[7]),
-            z_axis: glam::DVec3::new(arr[9], arr[11], -arr[10]),
+            center: glam::DVec3::new(arr[0], arr[1], arr[2]),
+            x_axis: glam::DVec3::new(arr[3], arr[4], arr[5]),
+            y_axis: glam::DVec3::new(arr[6], arr[7], arr[8]),
+            z_axis: glam::DVec3::new(arr[9], arr[10], arr[11]),
+            // center: glam::DVec3::new(arr[0], arr[2], -arr[1]),
+            // x_axis: glam::DVec3::new(arr[3], arr[5], -arr[4]),
+            // y_axis: glam::DVec3::new(arr[6], arr[8], -arr[7]),
+            // z_axis: glam::DVec3::new(arr[9], arr[11], -arr[10]),
         })
     }
 }
