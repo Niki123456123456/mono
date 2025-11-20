@@ -12,6 +12,7 @@ pub struct Orientation {
     pub alpha: f64,
     pub beta: f64,
     pub gamma: f64,
+    pub ahrs: fusion_ahrs::Ahrs,
 }
 pub fn request_device_motion_permission() {
     let global = js_sys::global();
@@ -103,7 +104,15 @@ impl OrientationTracker {
 
             if let Some((((a_x, (a_y, a_z)), (r_x, (r_y, r_z))), i)) =
                 acceleration.zip(rotation).zip(interval)
-            {}
+            {
+                let mut o = o2.lock();
+                o.ahrs.update_no_magnetometer(
+                    nalgebra::Vector3::new(r_x as f32, r_y as f32, r_z as f32),
+                    nalgebra::Vector3::new(r_x as f32, r_y as f32, r_z as f32),
+                    i as f32,
+                );
+                
+            }
         }) as Box<dyn FnMut(_)>));
 
         let o2 = self.o.clone();
@@ -136,7 +145,11 @@ impl OrientationTracker {
         window
             .add_event_listener_with_callback(
                 "devicemotion",
-                self.motion_closure.as_ref().unwrap().as_ref().unchecked_ref(),
+                self.motion_closure
+                    .as_ref()
+                    .unwrap()
+                    .as_ref()
+                    .unchecked_ref(),
             )
             .unwrap();
     }

@@ -475,6 +475,7 @@ fn main() {
     head_tracking::request_device_motion_permission();
     head_tracking::request_orientation_motion_permission();
     run("sketch3", |c| {
+        let mut tracker = OrientationTracker::new();
         let viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
 
@@ -530,32 +531,53 @@ fn main() {
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(egui_ctx, |ui| {
-                    if let Some((pose, count)) = &pose {
-                        ui.label(format!("{:?}", pose.orientation));
-                        ui.label(format!("{:?}", pose.position));
-                        ui.label(format!("{:?}", count));
-                    } else {
-                        if ui.button("Test").clicked() {
-                            head_tracking::request_device_motion_permission();
-                            head_tracking::request_orientation_motion_permission();
-                            head_tracking::start_head_tracking();
-                        }
+                    // if let Some((pose, count)) = &pose {
+                    //     ui.label(format!("{:?}", pose.orientation));
+                    //     ui.label(format!("{:?}", pose.position));
+                    //     ui.label(format!("{:?}", count));
+                    // } else {
+                    //     if ui.button("Test").clicked() {
+                    //         head_tracking::request_device_motion_permission();
+                    //         head_tracking::request_orientation_motion_permission();
+                    //         // head_tracking::start_head_tracking();
+                    //         tracker.start(ui.ctx().clone());
+                    //     }
+                    // }
+                    if ui.button("Test").clicked() {
+                        head_tracking::request_device_motion_permission();
+                        head_tracking::request_orientation_motion_permission();
+                        // head_tracking::start_head_tracking();
+                        tracker.start(ui.ctx().clone());
+                    }
+                    {
+                        let o = tracker.o.lock();
+                        let c = o.ahrs.quaternion().coords;
+                        let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
+                        ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w))
                     }
                 });
             });
 
-            if let Some((pose, count)) = &pose {
-                let o = glam::DMat4::from_quat(pose.orientation);
-                // let view = camera.view();
-                // let target = camera.target();
-                // let target = (
-                //     maps::dglam_to_three_d(&o)
-                //     * target.extend(1.0))
-                // .truncate();
-                // let p = camera.position();
-                // let up = camera.up();
-                // camera.set_view(p, target, up);
-                camera.view = maps::dglam_to_three_d(&o);
+            // if let Some((pose, count)) = &pose {
+            //     let o = glam::DMat4::from_quat(pose.orientation);
+            //     // let view = camera.view();
+            //     // let target = camera.target();
+            //     // let target = (
+            //     //     maps::dglam_to_three_d(&o)
+            //     //     * target.extend(1.0))
+            //     // .truncate();
+            //     // let p = camera.position();
+            //     // let up = camera.up();
+            //     // camera.set_view(p, target, up);
+            //     camera.view = maps::dglam_to_three_d(&o);
+            // }
+
+            {
+                let o = tracker.o.lock();
+                let c = o.ahrs.quaternion().coords;
+                let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
+                let m = glam::Mat4::from_quat(q);
+                camera.view = maps::glam_to_three_d(&m);
             }
 
             let _ = ctx
@@ -573,7 +595,6 @@ fn main() {
         });
     })
 }
-
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -673,8 +694,7 @@ impl Camera2 {
         self.z_far = z_far;
         let field_of_view_y = field_of_view_y.into();
         self.projection_type = ProjectionType::Perspective { field_of_view_y };
-        self.projection =
-            perspective(field_of_view_y, self.viewport.aspect(), z_near, z_far);
+        self.projection = perspective(field_of_view_y, self.viewport.aspect(), z_near, z_far);
     }
 
     ///
@@ -759,7 +779,6 @@ impl Camera2 {
             ProjectionType::Perspective { .. } => self.position,
         }
     }
-
 
     ///
     /// Returns the 3D view direction at the given uv coordinate of the viewport.
