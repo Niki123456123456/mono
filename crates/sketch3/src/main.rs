@@ -4,13 +4,16 @@ use std::{
 };
 
 use bricks::line_writer::LineMesh;
-use three_d::*;
+use glam::vec2;
+use three_d::{egui::viewport, *};
 
 use crate::maps::{Place, TileCache};
 
 pub mod bricks;
 pub mod export;
 pub mod maps;
+pub mod stero_view;
+pub mod head_tracking;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -173,11 +176,10 @@ fn bricks_ui(
     });
 }
 
-fn main() {
+fn main2() {
     //crate::bricks::creation::create();
 
     run("sketch3", |c| {
-
         let mut camera = Camera::new_perspective(
             Viewport::new_at_origo(512, 512),
             vec3(47702560.0, 0.0, -9691560.0),
@@ -187,8 +189,6 @@ fn main() {
             100.,        //0.1,
             1000000000., //1000.0,
         );
-
-        
 
         let mut control =
             crate::maps::OrbitControl::new(camera.target(), 6_378_000.0 - 15_000., 50_000_000.0);
@@ -266,7 +266,7 @@ fn main() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
-        let mut key = "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string();
+        let mut key = "".to_string();
         let mut search = "".to_string();
 
         let mut search_promise = None;
@@ -424,10 +424,12 @@ pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3
     .unwrap();
     let context = window.gl();
 
+
     let mut gui = three_d::GUI::new(&context);
 
     let ctx = CreateContext3d {
         ctx: context.clone(),
+        viewport: window.viewport(),
     };
 
     let mut update = (f)(ctx);
@@ -445,6 +447,7 @@ pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3
 
 pub struct CreateContext3d {
     pub ctx: Context,
+    pub viewport: Viewport,
 }
 
 pub struct Context3d<'a> {
@@ -462,4 +465,73 @@ impl<'a> Context3d<'a> {
             callback,
         );
     }
+}
+
+
+fn main() {
+    run("sketch3", |c| {
+        let viewport = c.viewport;
+        let is_portrait = viewport.height > viewport.width;
+
+        
+
+        let lens = stero_view::LensDistortion::default(vec2(viewport.width as f32, viewport.height as f32));
+
+        let mut renderer = stero_view::Renderer::new(&c.ctx, lens, viewport);
+
+        let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
+
+        let mut cube = Gm::new(
+            Mesh::new(&c.ctx, &CpuMesh::cube()),
+            ColorMaterial::new_opaque(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::RED,
+                    ..Default::default()
+                },
+            ),
+        );
+        cube.set_transformation(
+            Mat4::from_translation(vec3(-1.0, 0.0, 0.0)) * Mat4::from_scale(0.4),
+        );
+
+        let mut c = Gm::new(
+            Mesh::new(&c.ctx, &CpuMesh::cube()),
+            ColorMaterial::new_opaque(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::BLUE,
+                    ..Default::default()
+                },
+            ),
+        );
+        c.set_transformation(Mat4::from_translation(vec3(-3.0, -3.0, 0.0)) * Mat4::from_scale(0.6));
+
+        let mut camera = Camera::new_perspective(
+            viewport,
+            vec3(5.0, 2.0, 2.5),
+            vec3(0.0, 0.0, -0.5),
+            vec3(0.0, 1.0, 0.0),
+            degrees(33.3798),
+            0.1,
+            1000.0,
+        );
+
+        return Box::new(move |mut ctx| {
+            ctx.update_ui(|_| {});
+
+            let _ = ctx
+                .frame_input
+                .screen()
+                .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
+                .write(|| {
+                    renderer.render(is_portrait, ctx.frame_input.viewport, |v| {
+                        camera.set_viewport(v);
+                        c.render(&camera, &[&light]);
+                        cube.render(&camera, &[&light]);
+                    });
+                    return ctx.gui.render();
+                });
+        });
+    })
 }
