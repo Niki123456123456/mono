@@ -19,6 +19,17 @@ pub fn glam_to_three_d(mat: &glam::Mat4) -> three_d::Mat4 {
     )
 }
 
+pub fn dglam_to_three_d(mat: &glam::DMat4) -> three_d::Mat4 {
+    let cols = mat.to_cols_array();
+    three_d::Mat4::new(
+        cols[0] as f32, cols[1]as f32,  cols[2]as f32,  cols[3]as f32, 
+         cols[4]as f32,  cols[5]as f32,  cols[6]as f32,  cols[7]as f32,  
+         cols[8]as f32,  cols[9]as f32, 
+        cols[10]as f32,  cols[11]as f32, 
+         cols[12]as f32,  cols[13]as f32,  cols[14]as f32,  cols[15]as f32, 
+    )
+}
+
 pub fn three_d_to_glam(mat: &three_d::Mat4) -> glam::DMat4 {
     glam::DMat4::from_cols_array(&[
         mat[0][0] as f64,

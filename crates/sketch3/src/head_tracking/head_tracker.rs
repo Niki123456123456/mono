@@ -39,12 +39,13 @@ pub struct HeadTracker {
 
     viewport_orientation: ViewportOrientation,
     viewport_orientation_initialized: bool,
+    pub count : usize,
 }
 
 impl HeadTracker {
     pub fn new() -> Self {
         Self {
-            is_tracking: false,
+            is_tracking: true,
             sensor_fusion: SensorFusionEkf::new(),
             latest_gyro_data: GyroscopeData {
                 system_timestamp: 0,
@@ -53,6 +54,7 @@ impl HeadTracker {
             },
             viewport_orientation: ViewportOrientation::LandscapeLeft,
             viewport_orientation_initialized: false,
+            count: 0,
         }
     }
 
@@ -85,6 +87,7 @@ impl HeadTracker {
             return;
         }
         self.sensor_fusion.process_accelerometer_sample(event);
+       
     }
 
     pub fn process_gyroscope_sample(&mut self, event: GyroscopeData) {
@@ -93,6 +96,7 @@ impl HeadTracker {
         }
         self.latest_gyro_data = event;
         self.sensor_fusion.process_gyroscope_sample(event);
+         self.count+=1;
     }
 
     pub fn get_pose(

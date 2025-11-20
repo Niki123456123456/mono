@@ -5226,6 +5226,7 @@ dependencies = [
  "geoconv",
  "glam 0.30.3",
  "gltf",
+ "js-sys",
  "obj-exporter",
  "poll-promise",
  "reqwest 0.11.27",
@@ -5236,6 +5237,8 @@ dependencies = [
  "stl_io",
  "three-d",
  "three-d-asset",
+ "wasm-bindgen",
+ "web-sys",
  "weldr",
  "zip",
 ]

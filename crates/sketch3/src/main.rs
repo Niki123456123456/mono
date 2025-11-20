@@ -7,13 +7,17 @@ use bricks::line_writer::LineMesh;
 use glam::vec2;
 use three_d::{egui::viewport, *};
 
-use crate::maps::{Place, TileCache};
+use crate::{
+    maps::{Place, TileCache},
+    orientation::OrientationTracker,
+};
 
 pub mod bricks;
 pub mod export;
-pub mod maps;
-pub mod stero_view;
 pub mod head_tracking;
+pub mod maps;
+pub mod orientation;
+pub mod stero_view;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -424,7 +428,6 @@ pub fn run(app_name: &str, f: impl Fn(CreateContext3d) -> Box<dyn FnMut(Context3
     .unwrap();
     let context = window.gl();
 
-
     let mut gui = three_d::GUI::new(&context);
 
     let ctx = CreateContext3d {
@@ -467,15 +470,19 @@ impl<'a> Context3d<'a> {
     }
 }
 
-
 fn main() {
+     head_tracking::request_device_motion_permission();
+    head_tracking::request_orientation_motion_permission();
     run("sketch3", |c| {
+        let mut tracker = OrientationTracker::new();
+
         let viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
 
-        
-
-        let lens = stero_view::LensDistortion::default(vec2(viewport.width as f32, viewport.height as f32));
+        let lens = stero_view::LensDistortion::default(vec2(
+            viewport.width as f32,
+            viewport.height as f32,
+        ));
 
         let mut renderer = stero_view::Renderer::new(&c.ctx, lens, viewport);
 
@@ -518,7 +525,47 @@ fn main() {
         );
 
         return Box::new(move |mut ctx| {
-            ctx.update_ui(|_| {});
+            let pose =
+                head_tracking::get_pose_now(head_tracking::ViewportOrientation::LandscapeLeft);
+
+            ctx.update_ui(|egui_ctx| {
+                use three_d::egui::*;
+                SidePanel::left("side_panel").show(egui_ctx, |ui| {
+                    //             if let Some((pose, count)) = &pose {
+                    //                 ui.label(format!("{:?}", pose.orientation));
+                    //                 ui.label(format!("{:?}", pose.position));
+                    //                  ui.label(format!("{:?}", count));
+                    //             } else {
+                    //                  if ui.button("Test").clicked() {
+                    //                 head_tracking::request_device_motion_permission();
+                    // head_tracking::request_orientation_motion_permission();
+                    // head_tracking::start_head_tracking();
+                    //             }
+                    //             }
+
+                    if ui.button("Test").clicked() {
+                        tracker.start(ui.ctx().clone());
+                    }
+                    {
+                        let o = tracker.o.lock();
+                        ui.label(format!("{:?} {:?} {:?}", o.alpha, o.beta, o.gamma))
+                    }
+                });
+            });
+
+            // if let Some((pose, count)) = &pose {
+            //     let o = glam::DMat4::from_quat(pose.orientation);
+            //     let view = camera.view();
+            //     let target = camera.target();
+            //     let target = (view.invert().unwrap()
+            //         * maps::dglam_to_three_d(&o)
+            //         * view
+            //         * target.extend(1.0))
+            //     .truncate();
+            //     let p = camera.position();
+            //     let up = camera.up();
+            //     camera.set_view(p, target, up);
+            // }
 
             let _ = ctx
                 .frame_input

@@ -3,14 +3,14 @@ use crate::head_tracking::*;
 
 pub const EPS: f64 = 1e-15;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct GyroscopeData {
     pub system_timestamp: u64,
     pub sensor_timestamp_ns: u64,
     pub data: DVec3,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AccelerometerData {
     pub system_timestamp: u64,
     pub sensor_timestamp_ns: u64,
@@ -361,10 +361,8 @@ impl SensorFusionEkf {
                 eps_rot * self.current_state.sensor_from_start_rotation,
             );
 
-            let col = (self.innovation - delta_rot) / FINITE_DIFF_EPS;
-            self.accel_measurement_jacobian[(0, dof)] = col[0];
-            self.accel_measurement_jacobian[(1, dof)] = col[1];
-            self.accel_measurement_jacobian[(2, dof)] = col[2];
+            let col = self.accel_measurement_jacobian.col_mut(dof);
+            *col = (self.innovation - delta_rot) / FINITE_DIFF_EPS;
         }
     }
 
@@ -414,3 +412,7 @@ fn compute_time_diff_seconds(a_ns: i64, b_ns: i64) -> f64 {
     (a_ns - b_ns) as f64 * 1e-9
 }
 
+fn set(m :&mut DMat3, index: (usize, usize), v : f64){
+    let mut c =m.col_mut(index.0);
+    c[index.1] = v;
+}
