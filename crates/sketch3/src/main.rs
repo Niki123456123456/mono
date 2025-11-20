@@ -479,6 +479,8 @@ fn main() {
         let viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
 
+        let mut started = false;
+
         let lens = stero_view::LensDistortion::default(vec2(
             viewport.width as f32,
             viewport.height as f32,
@@ -543,19 +545,20 @@ fn main() {
                     //         tracker.start(ui.ctx().clone());
                     //     }
                     // }
-                    if ui.button("Test").clicked() {
+                    if !started && ui.button("Test").clicked() {
                         head_tracking::request_device_motion_permission();
                         head_tracking::request_orientation_motion_permission();
                         // head_tracking::start_head_tracking();
                         tracker.start(ui.ctx().clone());
+                        started = true;
                     }
-                    {
-                        let o = tracker.o.lock();
-                        let c = o.ahrs.quaternion().coords;
-                        let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                        // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
-                        ui.label(format!("{:.2} {:.2} {:.2} ", o.alpha, o.beta, o.gamma));
-                    }
+                    // {
+                    //     let o = tracker.o.lock();
+                    //     let c = o.ahrs.quaternion().coords;
+                    //     let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
+                    //     // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
+                    //     ui.label(format!("{:.2} {:.2} {:.2} ", o.alpha, o.beta, o.gamma));
+                    // }
                 });
             });
 
@@ -579,7 +582,7 @@ fn main() {
                 // let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
                 // let m = glam::Mat4::from_quat(q);
                 //let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
-                let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
+                let q = quat_from_device_orientation(o.beta, o.alpha, o.gamma);
                 let m = glam::DMat4::from_quat(q);
                 camera.view = maps::dglam_to_three_d(&m);
             }
