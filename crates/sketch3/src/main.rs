@@ -532,7 +532,8 @@ fn main() {
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
-                SidePanel::left("side_panel").show(egui_ctx, |ui| {
+                if !started {
+                    SidePanel::left("side_panel").show(egui_ctx, |ui| {
                     // if let Some((pose, count)) = &pose {
                     //     ui.label(format!("{:?}", pose.orientation));
                     //     ui.label(format!("{:?}", pose.position));
@@ -545,7 +546,7 @@ fn main() {
                     //         tracker.start(ui.ctx().clone());
                     //     }
                     // }
-                    if !started && ui.button("Test").clicked() {
+                    if ui.button("Test").clicked() {
                         head_tracking::request_device_motion_permission();
                         head_tracking::request_orientation_motion_permission();
                         // head_tracking::start_head_tracking();
@@ -560,6 +561,8 @@ fn main() {
                     //     ui.label(format!("{:.2} {:.2} {:.2} ", o.alpha, o.beta, o.gamma));
                     // }
                 });
+                }
+                
             });
 
             // if let Some((pose, count)) = &pose {
