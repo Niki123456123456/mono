@@ -578,6 +578,10 @@ fn main() {
                 let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
                 let m = glam::Mat4::from_quat(q);
                 camera.view = maps::glam_to_three_d(&m);
+
+                let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
+                let m = glam::DMat4::from_quat(q);
+                camera.view = maps::dglam_to_three_d(&m);
             }
 
             let _ = ctx

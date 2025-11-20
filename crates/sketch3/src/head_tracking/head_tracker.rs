@@ -21,7 +21,7 @@ impl ViewportOrientation {
         }
     }
 
-    fn idx(self) -> usize {
+    pub fn idx(self) -> usize {
         self as usize
     }
 }
@@ -142,9 +142,17 @@ impl HeadTracker {
     }
 }
 
+pub fn map_with_orientation(predicted : DQuat, viewport_orientation: ViewportOrientation,) -> DQuat{
+    let sensor_to_display =
+            sensor_to_display_rotations()[viewport_orientation.idx()];
+        let ekf_to_head =
+            ekf_to_head_tracker_rotations()[viewport_orientation.idx()];
+        sensor_to_display * predicted * ekf_to_head
+}
+
 // === Static rotations ported from head_tracker.cc. :contentReference[oaicite:4]{index=4} ===
 
-fn sensor_to_display_rotations() -> [DQuat; 4] {
+pub fn sensor_to_display_rotations() -> [DQuat; 4] {
     // Directly use the same quaternions as SensorToDisplayRotations() in C++. :contentReference[oaicite:5]{index=5}
     [
 
@@ -156,7 +164,7 @@ fn sensor_to_display_rotations() -> [DQuat; 4] {
     ]
 }
 
-fn ekf_to_head_tracker_rotations() -> [DQuat; 4] {
+pub  fn ekf_to_head_tracker_rotations() -> [DQuat; 4] {
     // Port of EkfToHeadTrackerRotations(). :contentReference[oaicite:6]{index=6}
     [
         DQuat::from_array([0.5, -0.5, -0.5, 0.5]), // LL
