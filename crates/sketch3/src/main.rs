@@ -471,11 +471,9 @@ impl<'a> Context3d<'a> {
 }
 
 fn main() {
-     head_tracking::request_device_motion_permission();
+    head_tracking::request_device_motion_permission();
     head_tracking::request_orientation_motion_permission();
     run("sketch3", |c| {
-        // let mut tracker = OrientationTracker::new();
-
         let viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
 
@@ -531,25 +529,17 @@ fn main() {
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(egui_ctx, |ui| {
-                                if let Some((pose, count)) = &pose {
-                                    ui.label(format!("{:?}", pose.orientation));
-                                    ui.label(format!("{:?}", pose.position));
-                                     ui.label(format!("{:?}", count));
-                                } else {
-                                     if ui.button("Test").clicked() {
-                                    head_tracking::request_device_motion_permission();
-                    head_tracking::request_orientation_motion_permission();
-                    head_tracking::start_head_tracking();
-                                }
-                                }
-
-                    // if ui.button("Test").clicked() {
-                    //     tracker.start(ui.ctx().clone());
-                    // }
-                    // {
-                    //     let o = tracker.o.lock();
-                    //     ui.label(format!("{:?} {:?} {:?}", o.alpha, o.beta, o.gamma))
-                    // }
+                    if let Some((pose, count)) = &pose {
+                        ui.label(format!("{:?}", pose.orientation));
+                        ui.label(format!("{:?}", pose.position));
+                        ui.label(format!("{:?}", count));
+                    } else {
+                        if ui.button("Test").clicked() {
+                            head_tracking::request_device_motion_permission();
+                            head_tracking::request_orientation_motion_permission();
+                            head_tracking::start_head_tracking();
+                        }
+                    }
                 });
             });
 
@@ -557,9 +547,8 @@ fn main() {
                 let o = glam::DMat4::from_quat(pose.orientation);
                 let view = camera.view();
                 let target = camera.target();
-                let target = (view.invert().unwrap()
-                    * maps::dglam_to_three_d(&o)
-                    * view
+                let target = (
+                    maps::dglam_to_three_d(&o)
                     * target.extend(1.0))
                 .truncate();
                 let p = camera.position();
