@@ -553,7 +553,8 @@ fn main() {
                         let o = tracker.o.lock();
                         let c = o.ahrs.quaternion().coords;
                         let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                        ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w))
+                        // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
+                        ui.label(format!("{:.2} {:.2} {:.2} ", o.alpha, o.beta, o.gamma));
                     }
                 });
             });
@@ -574,12 +575,11 @@ fn main() {
 
             {
                 let o = tracker.o.lock();
-                let c = o.ahrs.quaternion().coords;
-                let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                let m = glam::Mat4::from_quat(q);
-                camera.view = maps::glam_to_three_d(&m);
-
-                let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
+                //let c = o.ahrs.quaternion().coords;
+                // let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
+                // let m = glam::Mat4::from_quat(q);
+                //let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
+                let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
                 let m = glam::DMat4::from_quat(q);
                 camera.view = maps::dglam_to_three_d(&m);
             }
@@ -599,6 +599,32 @@ fn main() {
         });
     })
 }
+
+fn quat_from_device_orientation(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -> glam::DQuat {
+    let alpha = deg_to_rad(alpha_deg);
+    let beta  = deg_to_rad(beta_deg);
+    let gamma = deg_to_rad(gamma_deg);
+
+    // Axis vectors
+    let z_axis = glam::DVec3::Z;
+    let x_axis = glam::DVec3::X;
+    let y_axis = glam::DVec3::Y;
+
+    // Individual quaternions (intrinsic rotations):
+    // Note: order is important – here: Z → X → Y
+    let q_alpha = glam::DQuat::from_axis_angle(z_axis, alpha);
+    let q_beta  = glam::DQuat::from_axis_angle(x_axis, beta);
+    let q_gamma = glam::DQuat::from_axis_angle(y_axis, gamma);
+
+    // Combine in the same order as applied in the device frame.
+    // For intrinsic rotations, the composition is q = q_z * q_x * q_y
+    q_alpha * q_beta * q_gamma
+}
+
+fn deg_to_rad(deg: f64) -> f64 {
+    deg * std::f64::consts::PI / 180.0
+}
+
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
