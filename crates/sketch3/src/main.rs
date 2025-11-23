@@ -471,7 +471,7 @@ impl<'a> Context3d<'a> {
     }
 }
 
-fn get_camera(viewport: Viewport, alpfa: f32, gamma: f32) -> Camera2 {
+fn get_camera(viewport: Viewport, mut alpfa:  f32, gamma: f32) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
         vec3(0.0, 2.0, 0.0),
@@ -481,6 +481,9 @@ fn get_camera(viewport: Viewport, alpfa: f32, gamma: f32) -> Camera2 {
         0.1,
         1000.0,
     );
+    if gamma < 0. {
+        alpfa = (alpfa + 180.0) % 360.0;
+    }
     let a = (alpfa / 360.0) * std::f32::consts::TAU;
     let g = if gamma > 0. {
         ((90. - gamma) / 90.) * -std::f32::consts::PI
@@ -489,7 +492,7 @@ fn get_camera(viewport: Viewport, alpfa: f32, gamma: f32) -> Camera2 {
     } else {
         0.
     };
-    // camera.rotate_around_with_fixed_up(camera.position, a, 0.);
+    camera.rotate_around_with_fixed_up(camera.position, a, 0.);
     camera.rotate_around_with_fixed_up(camera.position, 0., g);
     return camera;
 }
