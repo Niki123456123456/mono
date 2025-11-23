@@ -471,13 +471,27 @@ impl<'a> Context3d<'a> {
     }
 }
 
+fn get_camera(viewport: Viewport, alpfa : f32) -> Camera2 {
+    let mut camera = Camera2::new_perspective(
+        viewport,
+        vec3(0.0, 2.0, 0.0),
+        vec3(0.0, 2.0, -0.5),
+        vec3(0.0, 1.0, 0.0),
+        degrees(33.3798),
+        0.1,
+        1000.0,
+    );
+    let a = (alpfa / 360.0) * std::f32::consts::TAU;
+    camera.rotate_around_with_fixed_up(camera.position, a, 0.);
+    return camera;
+}
 fn main() {
     head_tracking::request_device_motion_permission();
     head_tracking::request_orientation_motion_permission();
 
     run("sketch3", |c| {
         let mut tracker = OrientationTracker::new();
-        let viewport = c.viewport;
+        let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
 
         let mut started = false;
@@ -513,15 +527,7 @@ fn main() {
             ),
         );
 
-        let mut camera = Camera2::new_perspective(
-            viewport,
-            vec3(0.0, 2.0, 0.0),
-            vec3(0.0, 2.0, -0.5),
-            vec3(0.0, 1.0, 0.0),
-            degrees(33.3798),
-            0.1,
-            1000.0,
-        );
+        let mut camera = get_camera(viewport, 0.);
 
         return Box::new(move |mut ctx| {
             let pose =
@@ -555,7 +561,10 @@ fn main() {
                             let c = o.ahrs.quaternion().coords;
                             let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
                             // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
-                            ui.label(format!("alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ", o.alpha, o.beta, o.gamma));
+                            ui.label(format!(
+                                "alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ",
+                                o.alpha, o.beta, o.gamma
+                            ));
                         }
                         ui.horizontal(|ui| {
                             if ui.button("-").clicked() {
@@ -599,9 +608,10 @@ fn main() {
                 // let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
                 // let m = glam::Mat4::from_quat(q);
                 //let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
-                let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
-                let m = glam::DMat4::from_quat(q);
+                // let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
+                // let m = glam::DMat4::from_quat(q);
                 // camera.view = maps::dglam_to_three_d(&m);
+                camera = get_camera(viewport, o.alpha as f32);
             }
 
             let _ = ctx
