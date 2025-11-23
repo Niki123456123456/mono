@@ -546,7 +546,9 @@ fn main() {
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
-                if !started || true {
+                if !started  {
+                     tracker.start(egui_ctx.clone());
+                    started = true;
                     SidePanel::left("side_panel").show(egui_ctx, |ui| {
                         // if let Some((pose, count)) = &pose {
                         //     ui.label(format!("{:?}", pose.orientation));
