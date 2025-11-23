@@ -472,8 +472,8 @@ impl<'a> Context3d<'a> {
 }
 
 fn main() {
-    // head_tracking::request_device_motion_permission();
-    // head_tracking::request_orientation_motion_permission();
+    head_tracking::request_device_motion_permission();
+    head_tracking::request_orientation_motion_permission();
 
     run("sketch3", |c| {
         let mut tracker = OrientationTracker::new();
