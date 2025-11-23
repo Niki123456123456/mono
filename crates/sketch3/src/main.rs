@@ -615,15 +615,9 @@ fn main() {
             //     camera.view = maps::dglam_to_three_d(&o);
             // }
 
+            let (alpha, gamma) = (0.,0.);
             {
                 let o = tracker.o.lock();
-                //let c = o.ahrs.quaternion().coords;
-                // let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                // let m = glam::Mat4::from_quat(q);
-                //let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
-                // let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
-                // let m = glam::DMat4::from_quat(q);
-                // camera.view = maps::dglam_to_three_d(&m);
                 camera = get_camera(viewport, o.alpha as f32, o.gamma as f32);
             }
 
@@ -632,11 +626,15 @@ fn main() {
                 .screen()
                 .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
                 .write(|| {
-                    renderer.render(is_portrait, ctx.frame_input.viewport, |v| {
+                    renderer.render(is_portrait, ctx.frame_input.viewport, |v, translation| {
+                        let mut camera = get_camera(viewport, alpha as f32,gamma as f32);
                         camera.set_viewport(v);
+                        camera.translate(camera.right_direction().normalize() * translation);
                         room.render(&camera, &[&light]);
                     });
-                    return ctx.gui.render();
+                    // return ctx.gui.render();
+                    let result : Result<(), three_d::CoreError> = Ok(());
+                    return result;
                 });
         });
     })

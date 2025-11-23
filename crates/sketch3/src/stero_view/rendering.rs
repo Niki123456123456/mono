@@ -10,6 +10,7 @@ pub struct Renderer {
     pub color: Texture2D,
     pub depth: DepthTexture2D,
     pub viewport: Viewport,
+    pub context: Context,
 }
 
 pub struct RendererEye {
@@ -96,7 +97,8 @@ impl Renderer {
 
         // Create a color texture to render into
         let is_portrait = viewport.height > viewport.width;
-        let (tex_width, tex_height) = if is_portrait {(viewport.height,viewport.width)} else {(viewport.width,viewport.height)};
+        let (tex_width, tex_height) = if is_portrait {(viewport.width,viewport.height)} else {(viewport.width,viewport.height)}; // so sieht man beide linsen das bild ist aber verzehrt.
+        let (tex_width, tex_height) = if is_portrait {(viewport.height,viewport.width)} else {(viewport.width,viewport.height)}; // so wird bei portrait oben, in der linken linse das bild abgeschnitt warum?, solle eigenlich funktionieren
 
         let mut texture = Texture2D::new_empty::<[u8; 4]>(
             &context,
@@ -122,16 +124,17 @@ impl Renderer {
             depth: depth_texture,
             program,
             left: RendererEye::new(context, &distortion.eye_left, Vec2::zero(), vec2(0.5, 1.)),
-            right: RendererEye::new(context, &distortion.eye_right, vec2(0., 0.), vec2(1., 1.)),
+            right: RendererEye::new(context, &distortion.eye_right, vec2(0.5, 0.), vec2(1., 1.)),
             distortion,
             viewport,
+            context: context.clone(),
         }
     }
     pub fn render(
         &mut self,
         is_portrait: bool,
         viewport: Viewport,
-        mut render: impl FnMut(Viewport),
+        mut render: impl FnMut(Viewport, f32),
     ) {
         let w = viewport.width / 2;
         let h = viewport.height / 2;
@@ -163,28 +166,37 @@ impl Renderer {
             },
         ]};
 
-        let inter_lens_distance = 0.0681293;
+        let inter_lens_distance : f32 = 0.0681293;
 
-        let translations = [
-            vec3(inter_lens_distance * 0.5, 0., 0.),
-            vec3(-inter_lens_distance * 0.5, 0., 0.),
-        ];
+        let translations = [-inter_lens_distance * 0.5, inter_lens_distance * 0.5];
 
-        let w2 = self.viewport.width / 2;
-        let viewports2 = [
+        let viewports2 = if is_portrait { [
+            Viewport {
+                 x: 0,
+                y: 0,
+                width: h,
+                height: viewport.width,
+            },
+            Viewport {
+                 x: h as i32,
+                y: 0,
+                width: h,
+                height: viewport.width,
+            },
+        ]} else { [
             Viewport {
                 x: 0,
                 y: 0,
                 width: w,
-                height: self.viewport.height,
+                height: viewport.height,
             },
             Viewport {
                 x: w as i32,
                 y: 0,
                 width: w,
-                height: self.viewport.height,
+                height: viewport.height,
             },
-        ];
+        ]};
         let pixels = RenderTarget::new(
             self.color.as_color_target(None),
             self.depth.as_depth_target(),
@@ -192,11 +204,13 @@ impl Renderer {
         .clear(ClearState::color_and_depth(0.0, 0.0, 0.0, 1.0, 1.0))
         .write(|| {
             let result: Result<(), crate::CoreError> = Ok(());
-            for v in viewports2.iter() {
-                render(v.clone());
+            for (i,v) in viewports2.iter().enumerate() {
+                render(v.clone(), translations[i]);
             }
             return result;
         });
+
+        self.context.set_scissor(ScissorBox { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height });
 
         let rotation: Mat2 = if is_portrait {
             Mat2::new(0.0, -1.0, 1.0, 0.0)
