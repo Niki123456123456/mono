@@ -95,8 +95,9 @@ impl Renderer {
             Program::from_source(context, vertex_shader_source, fragment_shader_source).unwrap();
 
         // Create a color texture to render into
-        let tex_width = viewport.width;
-        let tex_height = viewport.height;
+        let is_portrait = viewport.height > viewport.width;
+        let (tex_width, tex_height) = if is_portrait {(viewport.height,viewport.width)} else {(viewport.width,viewport.height)};
+
         let mut texture = Texture2D::new_empty::<[u8; 4]>(
             &context,
             tex_width,
