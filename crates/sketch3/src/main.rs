@@ -489,7 +489,8 @@ fn get_camera(viewport: Viewport, alpfa: f32, gamma: f32) -> Camera2 {
     } else {
         0.
     };
-    camera.rotate_around_with_fixed_up(camera.position, a, g);
+    // camera.rotate_around_with_fixed_up(camera.position, a, 0.);
+    camera.rotate_around_with_fixed_up(camera.position, 0., g);
     return camera;
 }
 fn main() {
