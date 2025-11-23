@@ -16,20 +16,16 @@ pub struct RendererEye {
     pub positions: VertexBuffer<Vec2>,
     pub uvs: VertexBuffer<Vec2>,
     pub indices: ElementBuffer<u32>,
-    pub left_u: f32,
-    pub right_u: f32,
-    pub top_v: f32,
-    pub bottom_v: f32,
+    pub start: Vec2,
+    pub end : Vec2,
 }
 
 impl RendererEye {
     pub fn new(
         context: &Context,
         lens: &LensDistortionEye,
-        left_u: f32,
-        right_u: f32,
-        top_v: f32,
-        bottom_v: f32,
+        start: Vec2,
+        end : Vec2,
     ) -> Self {
         let p: Vec<_> = lens
             .mesh
@@ -43,10 +39,8 @@ impl RendererEye {
             positions: VertexBuffer::new_with_data(context, &p),
             uvs: VertexBuffer::new_with_data(context, &uv),
             indices: ElementBuffer::new_with_data(context, &lens.mesh.index_data),
-            left_u,
-            right_u,
-            top_v,
-            bottom_v,
+            start,
+            end,
         }
     }
 
@@ -54,8 +48,8 @@ impl RendererEye {
         program.use_vertex_attribute("a_Position", &self.positions);
         program.use_vertex_attribute("a_TexCoords", &self.uvs);
         program.use_texture("u_Texture", color);
-        program.use_uniform("u_Start", vec2(self.left_u, self.bottom_v));
-        program.use_uniform("u_End", vec2(self.right_u, self.top_v));
+        program.use_uniform("u_Start", self.start);
+        program.use_uniform("u_End", self.end);
 
         program.draw_elements(
             RenderStates::default(),
@@ -126,8 +120,8 @@ impl Renderer {
             color: texture,
             depth: depth_texture,
             program,
-            left: RendererEye::new(context, &distortion.eye_left, 0., 0.5, 1., 0.),
-            right: RendererEye::new(context, &distortion.eye_right, 0.5, 1., 1., 0.),
+            left: RendererEye::new(context, &distortion.eye_left, Vec2::zero(), vec2(0.5, 1.)),
+            right: RendererEye::new(context, &distortion.eye_right, vec2(0., 0.), vec2(1., 1.)),
             distortion,
             viewport,
         }
