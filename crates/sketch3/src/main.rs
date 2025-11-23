@@ -271,7 +271,7 @@ fn main2() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
-        let mut key = "".to_string();
+        let mut key = "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string();
         let mut search = "".to_string();
 
         let mut search_promise = None;
@@ -367,7 +367,7 @@ fn main2() {
             };
 
             camera.set_viewport(viewport);
-            // control.handle_events(&mut camera, &mut ctx.frame_input.events);
+            control.handle_events(&mut camera, &mut ctx.frame_input.events);
 
             let ctx3d = ctx.frame_input.context.clone();
 
@@ -472,8 +472,9 @@ impl<'a> Context3d<'a> {
 }
 
 fn main() {
-    head_tracking::request_device_motion_permission();
-    head_tracking::request_orientation_motion_permission();
+    // head_tracking::request_device_motion_permission();
+    // head_tracking::request_orientation_motion_permission();
+
     run("sketch3", |c| {
         let mut tracker = OrientationTracker::new();
         let viewport = c.viewport;
@@ -490,36 +491,32 @@ fn main() {
 
         let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
 
-        let mut cube = Gm::new(
-            Mesh::new(&c.ctx, &CpuMesh::cube()),
+        let mut assets = three_d_asset::io::RawAssets::new();
+        assets.insert(
+            "CubeRoom_BakedDiffuse.png",
+            include_bytes!("assets/CubeRoom_BakedDiffuse.png").to_vec(),
+        );
+        assets.insert(
+            "CubeRoom.obj",
+            include_bytes!("assets/CubeRoom.obj").to_vec(),
+        );
+        let room_texture: CpuTexture = assets.deserialize("CubeRoom_BakedDiffuse.png").unwrap();
+        let room_mesh: CpuMesh = assets.deserialize("CubeRoom.obj").unwrap();
+        let mut room = Gm::new(
+            Mesh::new(&c.ctx, &room_mesh),
             ColorMaterial::new_opaque(
                 &c.ctx,
                 &CpuMaterial {
-                    albedo: Srgba::RED,
+                    albedo_texture: Some(room_texture),
                     ..Default::default()
                 },
             ),
         );
-        cube.set_transformation(
-            Mat4::from_translation(vec3(-1.0, 0.0, 0.0)) * Mat4::from_scale(0.4),
-        );
-
-        let mut c = Gm::new(
-            Mesh::new(&c.ctx, &CpuMesh::cube()),
-            ColorMaterial::new_opaque(
-                &c.ctx,
-                &CpuMaterial {
-                    albedo: Srgba::BLUE,
-                    ..Default::default()
-                },
-            ),
-        );
-        c.set_transformation(Mat4::from_translation(vec3(-3.0, -3.0, 0.0)) * Mat4::from_scale(0.6));
 
         let mut camera = Camera2::new_perspective(
             viewport,
-            vec3(5.0, 2.0, 2.5),
-            vec3(0.0, 0.0, -0.5),
+            vec3(0.0, 2.0, 0.0),
+            vec3(0.0, 2.0, -0.5),
             vec3(0.0, 1.0, 0.0),
             degrees(33.3798),
             0.1,
@@ -532,37 +529,54 @@ fn main() {
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
-                if !started {
+                if !started || true {
                     SidePanel::left("side_panel").show(egui_ctx, |ui| {
-                    // if let Some((pose, count)) = &pose {
-                    //     ui.label(format!("{:?}", pose.orientation));
-                    //     ui.label(format!("{:?}", pose.position));
-                    //     ui.label(format!("{:?}", count));
-                    // } else {
-                    //     if ui.button("Test").clicked() {
-                    //         head_tracking::request_device_motion_permission();
-                    //         head_tracking::request_orientation_motion_permission();
-                    //         // head_tracking::start_head_tracking();
-                    //         tracker.start(ui.ctx().clone());
-                    //     }
-                    // }
-                    if ui.button("Test").clicked() {
-                        head_tracking::request_device_motion_permission();
-                        head_tracking::request_orientation_motion_permission();
-                        // head_tracking::start_head_tracking();
-                        tracker.start(ui.ctx().clone());
-                        started = true;
-                    }
-                    // {
-                    //     let o = tracker.o.lock();
-                    //     let c = o.ahrs.quaternion().coords;
-                    //     let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                    //     // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
-                    //     ui.label(format!("{:.2} {:.2} {:.2} ", o.alpha, o.beta, o.gamma));
-                    // }
-                });
+                        // if let Some((pose, count)) = &pose {
+                        //     ui.label(format!("{:?}", pose.orientation));
+                        //     ui.label(format!("{:?}", pose.position));
+                        //     ui.label(format!("{:?}", count));
+                        // } else {
+                        //     if ui.button("Test").clicked() {
+                        //         head_tracking::request_device_motion_permission();
+                        //         head_tracking::request_orientation_motion_permission();
+                        //         // head_tracking::start_head_tracking();
+                        //         tracker.start(ui.ctx().clone());
+                        //     }
+                        // }
+                        if ui.button("Test").clicked() {
+                            head_tracking::request_device_motion_permission();
+                            head_tracking::request_orientation_motion_permission();
+                            // head_tracking::start_head_tracking();
+                            tracker.start(ui.ctx().clone());
+                            started = true;
+                        }
+                        {
+                            let o = tracker.o.lock();
+                            let c = o.ahrs.quaternion().coords;
+                            let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
+                            // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
+                            ui.label(format!("alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ", o.alpha, o.beta, o.gamma));
+                        }
+                        ui.horizontal(|ui| {
+                            if ui.button("-").clicked() {
+                                // pi std::f32::consts::PI
+                                // 2x pi =  std::f32::consts::TAU
+                                camera.rotate_around_with_fixed_up(camera.position, -0.1, 0.);
+                            }
+                            if ui.button("+").clicked() {
+                                camera.rotate_around_with_fixed_up(camera.position, 0.1, 0.);
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            if ui.button("-").clicked() {
+                                camera.rotate_around_with_fixed_up(camera.position, 0., -0.1);
+                            }
+                            if ui.button("+").clicked() {
+                                camera.rotate_around_with_fixed_up(camera.position, 0., 0.1);
+                            }
+                        });
+                    });
                 }
-                
             });
 
             // if let Some((pose, count)) = &pose {
@@ -585,9 +599,9 @@ fn main() {
                 // let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
                 // let m = glam::Mat4::from_quat(q);
                 //let q = head_tracking::map_with_orientation(glam::DQuat::from_xyzw(c.x as f64, c.y as f64, c.z as f64, c.w as f64), head_tracking::ViewportOrientation::LandscapeLeft);
-                let q = quat_from_device_orientation(o.beta, o.alpha, o.gamma);
+                let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
                 let m = glam::DMat4::from_quat(q);
-                camera.view = maps::dglam_to_three_d(&m);
+                // camera.view = maps::dglam_to_three_d(&m);
             }
 
             let _ = ctx
@@ -597,8 +611,7 @@ fn main() {
                 .write(|| {
                     renderer.render(is_portrait, ctx.frame_input.viewport, |v| {
                         camera.set_viewport(v);
-                        c.render(&camera, &[&light]);
-                        cube.render(&camera, &[&light]);
+                        room.render(&camera, &[&light]);
                     });
                     return ctx.gui.render();
                 });
@@ -608,7 +621,7 @@ fn main() {
 
 fn quat_from_device_orientation(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -> glam::DQuat {
     let alpha = deg_to_rad(alpha_deg);
-    let beta  = deg_to_rad(beta_deg);
+    let beta = deg_to_rad(beta_deg);
     let gamma = deg_to_rad(gamma_deg);
 
     // Axis vectors
@@ -619,7 +632,7 @@ fn quat_from_device_orientation(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -
     // Individual quaternions (intrinsic rotations):
     // Note: order is important – here: Z → X → Y
     let q_alpha = glam::DQuat::from_axis_angle(z_axis, alpha);
-    let q_beta  = glam::DQuat::from_axis_angle(x_axis, beta);
+    let q_beta = glam::DQuat::from_axis_angle(x_axis, beta);
     let q_gamma = glam::DQuat::from_axis_angle(y_axis, gamma);
 
     // Combine in the same order as applied in the device frame.
@@ -630,7 +643,6 @@ fn quat_from_device_orientation(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -
 fn deg_to_rad(deg: f64) -> f64 {
     deg * std::f64::consts::PI / 180.0
 }
-
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

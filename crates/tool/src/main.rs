@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use egui::{PaintCallback, Shape};
 use sha2::Digest;
 
 fn main() {
@@ -20,10 +23,8 @@ fn main() {
 
         let mut jsonencoding = Encoding::new(
             "Json encoding",
-            &|data|  serde_json::to_string(data).unwrap_or_default(),
-            Some(&|data| {
-               serde_json::from_str::<String>(data).unwrap_or_default()
-            }),
+            &|data| serde_json::to_string(data).unwrap_or_default(),
+            Some(&|data| serde_json::from_str::<String>(data).unwrap_or_default()),
         );
 
         let mut sha256ncoding = Encoding::new(
@@ -44,6 +45,13 @@ fn main() {
                 ui.label("GUID: ");
                 ui.label(uuid.to_string());
             });
+
+            ui.painter().add(Shape::Callback(PaintCallback {
+                rect: ui.available_rect_before_wrap(),
+                callback: Arc::new(egui_glow::CallbackFn::new(|a, b| {
+                    
+                })) ,
+            }));
 
             urlencoding.show(ui);
             base64encoding.show(ui);
@@ -94,8 +102,8 @@ impl Encoding {
                     decode,
                     "encoded",
                 );
-            } else{
-                Encoding::show_single(& self.encoded,&mut columns[1], "encoded",);
+            } else {
+                Encoding::show_single(&self.encoded, &mut columns[1], "encoded");
             }
         });
     }
