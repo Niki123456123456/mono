@@ -615,10 +615,11 @@ fn main() {
             //     camera.view = maps::dglam_to_three_d(&o);
             // }
 
-            let (alpha, gamma) = (0.,0.);
+            let  (mut alpha,mut  gamma) = (0.,0.);
             {
                 let o = tracker.o.lock();
-                camera = get_camera(viewport, o.alpha as f32, o.gamma as f32);
+                alpha = o.alpha;
+                gamma = o.gamma;
             }
 
             let _ = ctx
