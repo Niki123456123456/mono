@@ -101,10 +101,12 @@ impl Renderer {
             Program::from_source(context, vertex_shader_source, fragment_shader_source).unwrap();
 
         // Create a color texture to render into
+        let tex_width = viewport.width;
+        let tex_height = viewport.height;
         let mut texture = Texture2D::new_empty::<[u8; 4]>(
             &context,
-            viewport.width,
-            viewport.height,
+            tex_width,
+            tex_height,
             Interpolation::Linear,
             Interpolation::Linear,
             None,
@@ -115,8 +117,8 @@ impl Renderer {
         // Also create a depth texture to support depth testing
         let mut depth_texture = DepthTexture2D::new::<f32>(
             &context,
-            viewport.width,
-            viewport.height,
+            tex_width,
+            tex_height,
             Wrapping::ClampToEdge,
             Wrapping::ClampToEdge,
         );
@@ -141,28 +143,16 @@ impl Renderer {
         let viewports = if is_portrait { [
             Viewport {
                 x: 0,
-                y: 0,
+                y: h as i32,
                 width: viewport.width,
                 height: h,
             },
             Viewport {
                 x: 0,
-                y: h as i32,
+                y: 0,
                 width: viewport.width,
                 height: h,
             },
-            //  Viewport {
-            //     x: 0,
-            //     y: 0,
-            //     width: viewport.width * 2,
-            //     height: viewport.height,
-            // },
-            // Viewport {
-            //     x: 0,
-            //     y: 0,
-            //     width: viewport.width * 2,
-            //     height: viewport.height,
-            // },
         ]} else { [
             Viewport {
                 x: 0,
@@ -220,9 +210,7 @@ impl Renderer {
         };
         self.program.use_uniform("u_Rotation", rotation);
 
-        self.left
-            .render(viewports[0].clone(), &self.program, &self.color);
-        self.right
-            .render(viewports[1].clone(), &self.program, &self.color);
+        self.left.render(viewports[0].clone(), &self.program, &self.color);
+        self.right.render(viewports[1].clone(), &self.program, &self.color);
     }
 }
