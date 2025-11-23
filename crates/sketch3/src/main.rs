@@ -471,7 +471,7 @@ impl<'a> Context3d<'a> {
     }
 }
 
-fn get_camera(viewport: Viewport, alpfa : f32) -> Camera2 {
+fn get_camera(viewport: Viewport, alpfa: f32, beta: f32) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
         vec3(0.0, 2.0, 0.0),
@@ -482,7 +482,14 @@ fn get_camera(viewport: Viewport, alpfa : f32) -> Camera2 {
         1000.0,
     );
     let a = (alpfa / 360.0) * std::f32::consts::TAU;
-    camera.rotate_around_with_fixed_up(camera.position, a, 0.);
+    let b = if beta > 0. {
+        ((90. - beta) / 90.) * -std::f32::consts::PI
+    } else if beta < 0. {
+        ((90. + beta) / 90.) * std::f32::consts::PI
+    } else {
+        0.
+    };
+    camera.rotate_around_with_fixed_up(camera.position, a, b);
     return camera;
 }
 fn main() {
@@ -527,7 +534,7 @@ fn main() {
             ),
         );
 
-        let mut camera = get_camera(viewport, 0.);
+        let mut camera = get_camera(viewport, 0., 0.);
 
         return Box::new(move |mut ctx| {
             let pose =
@@ -611,7 +618,7 @@ fn main() {
                 // let q = quat_from_device_orientation(o.alpha, o.beta, o.gamma);
                 // let m = glam::DMat4::from_quat(q);
                 // camera.view = maps::dglam_to_three_d(&m);
-                camera = get_camera(viewport, o.alpha as f32);
+                camera = get_camera(viewport, o.alpha as f32, o.beta as f32);
             }
 
             let _ = ctx
