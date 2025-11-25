@@ -471,7 +471,7 @@ impl<'a> Context3d<'a> {
     }
 }
 
-fn get_camera(viewport: Viewport, mut alpfa:  f32, gamma: f32) -> Camera2 {
+fn get_camera(viewport: Viewport, mut alpfa: f32, gamma: f32) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
         vec3(0.0, 2.0, 0.0),
@@ -497,10 +497,10 @@ fn get_camera(viewport: Viewport, mut alpfa:  f32, gamma: f32) -> Camera2 {
     return camera;
 }
 fn main() {
-    head_tracking::request_device_motion_permission();
-    head_tracking::request_orientation_motion_permission();
+    // head_tracking::request_device_motion_permission();
+    // head_tracking::request_orientation_motion_permission();
 
-    run("sketch3", |c| {
+    run("sketch3", move |c| {
         let mut tracker = OrientationTracker::new();
         let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
@@ -525,6 +525,15 @@ fn main() {
             "CubeRoom.obj",
             include_bytes!("assets/CubeRoom.obj").to_vec(),
         );
+        assets.insert(
+            "T_forklift_diffuse.png",
+            include_bytes!("assets/T_forklift_diffuse.png").to_vec(),
+        );
+        assets.insert(
+            "forklift_body.obj",
+            include_bytes!("assets/forklift_body.obj").to_vec(),
+        );
+
         let room_texture: CpuTexture = assets.deserialize("CubeRoom_BakedDiffuse.png").unwrap();
         let room_mesh: CpuMesh = assets.deserialize("CubeRoom.obj").unwrap();
         let mut room = Gm::new(
@@ -538,6 +547,20 @@ fn main() {
             ),
         );
 
+        let forklift_texture: CpuTexture = assets.deserialize("T_forklift_diffuse.png").unwrap();
+        let forklift_mesh: CpuMesh = assets.deserialize("forklift_body.obj").unwrap();
+
+        let mut forklift = Gm::new(
+            Mesh::new(&c.ctx, &forklift_mesh),
+            ColorMaterial::new_opaque(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo_texture: Some(forklift_texture),
+                    ..Default::default()
+                },
+            ),
+        );
+
         let mut camera = get_camera(viewport, 0., 0.);
 
         return Box::new(move |mut ctx| {
@@ -546,8 +569,8 @@ fn main() {
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
-                if !started  {
-                     tracker.start(egui_ctx.clone());
+                if !started {
+                    tracker.start(egui_ctx.clone());
                     started = true;
                     SidePanel::left("side_panel").show(egui_ctx, |ui| {
                         // if let Some((pose, count)) = &pose {
@@ -615,7 +638,7 @@ fn main() {
             //     camera.view = maps::dglam_to_three_d(&o);
             // }
 
-            let  (mut alpha,mut  gamma) = (0.,0.);
+            let (mut alpha, mut gamma) = (0., 0.);
             {
                 let o = tracker.o.lock();
                 alpha = o.alpha;
@@ -628,13 +651,14 @@ fn main() {
                 .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
                 .write(|| {
                     renderer.render(is_portrait, ctx.frame_input.viewport, |v, translation| {
-                        let mut camera = get_camera(viewport, alpha as f32,gamma as f32);
+                        let mut camera = get_camera(viewport, alpha as f32, gamma as f32);
                         camera.set_viewport(v);
                         camera.translate(camera.right_direction().normalize() * translation);
                         room.render(&camera, &[&light]);
+                        forklift.render(&camera, &[&light]);
                     });
                     // return ctx.gui.render();
-                    let result : Result<(), three_d::CoreError> = Ok(());
+                    let result: Result<(), three_d::CoreError> = Ok(());
                     return result;
                 });
         });
