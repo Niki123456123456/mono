@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<head>
+    <title>sketch3</title>
+
+    <base href="https://niki123456123456.github.io/mono/sketch3/" />
+    <meta name="theme-color" content="#404040">
+
+    <style>
+        html {
+            touch-action: manipulation;
+        }
+
+        body {
+            background: #404040;
+        }
+
+        html,
+        body {
+            overflow: hidden;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100%;
+            width: 100%;
+        }
+
+        canvas {
+            margin-right: auto;
+            margin-left: auto;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .centered {
+            margin-right: auto;
+            margin-left: auto;
+            display: block;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #f0f0f0;
+            font-size: 24px;
+            font-family: Ubuntu-Light, Helvetica, sans-serif;
+            text-align: center;
+        }
+
+        .lds-dual-ring {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+        }
+
+        .lds-dual-ring:after {
+            content: " ";
+            display: block;
+            width: 24px;
+            height: 24px;
+            margin: 0px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            border-color: #fff transparent #fff transparent;
+            animation: lds-dual-ring 1.2s linear infinite;
+        }
+
+        @keyframes lds-dual-ring {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* WICHTIG: Overlay sichtbar und klickbar machen */
+        #motion-permission-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            color: #ffffff;
+            font-family: Ubuntu-Light, Helvetica, sans-serif;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #motion-permission-overlay button {
+            margin-top: 16px;
+            padding: 12px 24px;
+            font-size: 18px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+
+    <link rel="modulepreload" href="https://niki123456123456.github.io/mono/sketch3/sketch3-{version}.js" crossorigin="anonymous" integrity="{js-sha}">
+    <link rel="preload" href="https://niki123456123456.github.io/mono/sketch3/sketch3-{version}_bg.wasm" crossorigin="anonymous" integrity="{wasm-sha}" as="fetch" type="application/wasm">
+
+    <script type="module">
+        import init, * as bindings from 'https://niki123456123456.github.io/mono/sketch3/sketch3-{version}.js';
+
+        async function startApp() {
+            console.log("startApp() called");
+            try {
+                const wasm = await init({
+                    module_or_path: 'https://niki123456123456.github.io/mono/sketch3/sketch3-{version}_bg.wasm'
+                });
+
+                window.wasmBindings = bindings;
+                dispatchEvent(new CustomEvent("TrunkApplicationStarted", { detail: { wasm } }));
+                console.log("WASM started");
+            } catch (e) {
+                console.error("Error in startApp:", e);
+            }
+        }
+
+        async function requestMotionPermissionsThenStart() {
+            console.log("Button clicked, requesting motion/orientation permission");
+            const overlay = document.getElementById('motion-permission-overlay');
+            if (overlay) overlay.remove();
+
+            try {
+                if (typeof DeviceMotionEvent !== "undefined" &&
+                    typeof DeviceMotionEvent.requestPermission === "function") {
+                    const result = await DeviceMotionEvent.requestPermission();
+                    console.log("DeviceMotion permission:", result);
+                } else {
+                    console.log("DeviceMotionEvent.requestPermission not available");
+                }
+
+                if (typeof DeviceOrientationEvent !== "undefined" &&
+                    typeof DeviceOrientationEvent.requestPermission === "function") {
+                    const result2 = await DeviceOrientationEvent.requestPermission();
+                    console.log("DeviceOrientation permission:", result2);
+                } else {
+                    console.log("DeviceOrientationEvent.requestPermission not available");
+                }
+            } catch (e) {
+                console.warn("Error requesting motion/orientation permission:", e);
+            }
+
+            startApp();
+        }
+
+        function initMotionOverlayOrStart() {
+            console.log("initMotionOverlayOrStart()");
+            if (typeof DeviceMotionEvent !== "undefined" &&
+                typeof DeviceMotionEvent.requestPermission === "function") {
+
+                console.log("iOS with requestPermission support – showing overlay");
+                const overlay = document.createElement('div');
+                overlay.id = 'motion-permission-overlay';
+                overlay.innerHTML = `
+                    <div>
+                        <div>⚙️ This sketch uses motion &amp; orientation.</div>
+                        <div>Please tap the button below to enable it.</div>
+                        <button id="motion-permission-button">
+                            Tap to start
+                        </button>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+
+                const btn = document.getElementById('motion-permission-button');
+                btn.addEventListener('click', requestMotionPermissionsThenStart, { once: true });
+            } else {
+                console.log("Not iOS or no requestPermission – starting app immediately");
+                startApp();
+            }
+        }
+
+        // Sicherstellen, dass wir auch laufen, wenn DOMContentLoaded schon durch ist
+        if (document.readyState === "loading") {
+            document.addEventListener('DOMContentLoaded', initMotionOverlayOrStart);
+        } else {
+            initMotionOverlayOrStart();
+        }
+    </script>
+</head>
+<body>
+    <canvas id="the_canvas_id"></canvas>
+</body>
+</html>
