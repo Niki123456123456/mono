@@ -120,8 +120,6 @@ pub fn CreateDistortionMesh(
         ),
     };
 
-    println!("screen size: {:?}", screen.size);
-
     let texture = ViewportParams {
         size: vec2(fov[0].tan() + fov[1].tan(), fov[2].tan() + fov[3].tan()),
         eye_offset: vec2(fov[0].tan(), fov[2].tan()),

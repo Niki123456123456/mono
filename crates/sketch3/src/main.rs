@@ -491,37 +491,48 @@ pub fn is_mobile() -> bool {
     false
 }
 
-fn get_camera(viewport: Viewport, mut alpfa: f32, gamma: f32) -> Camera2 {
+fn get_camera(viewport: Viewport, position: Vec3, v: glam::Vec2) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
-        vec3(0.0, 2.0, 0.0),
+         vec3(0.0, 2.0, 0.0),
         vec3(0.0, 2.0, -0.5),
         vec3(0.0, 1.0, 0.0),
-        degrees(33.3798),
+        degrees(33.3798 * 2.),
         0.1,
         1000.0,
     );
-    if gamma < 0. {
-        alpfa = (alpfa + 180.0) % 360.0;
-    }
+    camera.translate(position);
+    camera.rotate_around_with_fixed_up(camera.position, v.x, 0.);
+    camera.rotate_around_with_fixed_up(camera.position, 0., -v.y);
+    return camera;
+}
+
+fn transform_vec(xy: glam::Vec2) -> glam::Vec2 {
+    let alpfa = if xy.y < 0. {
+        (xy.x + 180.0) % 360.0
+    } else {
+        xy.x
+    };
     let a = (alpfa / 360.0) * std::f32::consts::TAU;
-    let g = if gamma > 0. {
-        ((90. - gamma) / 90.) * -std::f32::consts::PI
-    } else if gamma < 0. {
-        ((90. + gamma) / 90.) * std::f32::consts::PI
+    let g = if xy.y > 0. {
+        ((90. - xy.y) / 90.) * -std::f32::consts::PI
+    } else if xy.y < 0. {
+        ((90. + xy.y) / 90.) * std::f32::consts::PI
     } else {
         0.
     };
-    camera.rotate_around_with_fixed_up(camera.position, -a, 0.);
-    camera.rotate_around_with_fixed_up(camera.position, 0., g);
-    return camera;
+    glam::vec2(-a, -g)
 }
+
 fn main() {
     run("sketch3", move |c| {
+        let mut gamepads = gamepads::Gamepads::new();
         let mut tracker = OrientationTracker::new();
         let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
         let is_mobile = is_mobile();
+        let mut xy_vec = glam::Vec2::ZERO;
+        let mut camera_delta = vec3(0.0, 2.0, 0.0);
 
         let mut started = false;
 
@@ -578,10 +589,24 @@ fn main() {
                 },
             ),
         );
-
-        let mut camera = get_camera(viewport, 0., 0.);
+        let forklift_trans = forklift.transformation();
+        
 
         return Box::new(move |mut ctx| {
+            gamepads.poll();
+
+            for gamepad in gamepads.all() {
+                let (r_x, r_y) = gamepad.right_stick();
+                let r_delta = glam::vec2(r_x, r_y);
+                let (l_x, l_y) = gamepad.left_stick();
+                let l_delta = glam::vec2(l_x, l_y);
+                if !is_mobile {
+                    xy_vec += r_delta * 0.01;
+                }
+                camera_delta.x += l_delta.y * 0.1;
+            }
+            forklift.set_transformation(Mat4::from_translation(camera_delta) * forklift_trans);
+
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
                 if is_mobile && !started {
@@ -592,34 +617,14 @@ fn main() {
                     let mut o = tracker.o.lock();
                     ui.label(format!(
                         "alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ",
-                        o.alpha, o.beta, o.gamma
+                        xy_vec.x, xy_vec.y, o.gamma
                     ));
-                    if !is_mobile {
-                        ui.horizontal(|ui| {
-                            if ui.button("-").clicked() {
-                                o.alpha -= 0.1;
-                            }
-                            if ui.button("+").clicked() {
-                                o.alpha += 0.1;
-                            }
-                        });
-                        ui.horizontal(|ui| {
-                            if ui.button("-").clicked() {
-                                o.gamma -= 0.1;
-                            }
-                            if ui.button("+").clicked() {
-                                o.gamma += 0.1;
-                            }
-                        });
-                    }
                 });
             });
 
-            let (mut alpha, mut gamma) = (0., 0.);
-            {
+            if is_mobile {
                 let o = tracker.o.lock();
-                alpha = o.alpha;
-                gamma = o.gamma;
+                xy_vec = transform_vec(glam::vec2(o.alpha as f32, o.gamma as f32))
             }
 
             let _ = ctx
@@ -631,7 +636,7 @@ fn main() {
                         is_portrait,
                         ctx.frame_input.viewport,
                         |i, v, translation| {
-                            let mut camera = get_camera(viewport, alpha as f32, gamma as f32);
+                            let mut camera = get_camera(viewport, camera_delta, xy_vec);
                             camera.set_viewport(v);
                             camera.translate(camera.right_direction().normalize() * translation);
                             room.render(&camera, &[&light]);
