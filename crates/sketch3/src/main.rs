@@ -494,7 +494,7 @@ pub fn is_mobile() -> bool {
 fn get_camera(viewport: Viewport, position: Vec3, v: glam::Vec2) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
-         vec3(0.0, 2.0, 0.0),
+        vec3(0.0, 2.0, 0.0),
         vec3(0.0, 2.0, -0.5),
         vec3(0.0, 1.0, 0.0),
         degrees(33.3798 * 2.),
@@ -590,7 +590,6 @@ fn main() {
             ),
         );
         let forklift_trans = forklift.transformation();
-        
 
         return Box::new(move |mut ctx| {
             gamepads.poll();
@@ -627,31 +626,46 @@ fn main() {
                 xy_vec = transform_vec(glam::vec2(o.alpha as f32, o.gamma as f32))
             }
 
-            let _ = ctx
-                .frame_input
-                .screen()
-                .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
-                .write(|| {
-                    renderer.render(
-                        is_portrait,
-                        ctx.frame_input.viewport,
-                        |i, v, translation| {
-                            let mut camera = get_camera(viewport, camera_delta, xy_vec);
-                            camera.set_viewport(v);
-                            camera.translate(camera.right_direction().normalize() * translation);
-                            room.render(&camera, &[&light]);
-                            forklift.render(&camera, &[&light]);
-                            if is_mobile && i == 0 {
-                                let _ = ctx.gui.render();
-                            }
-                        },
-                    );
-                    if !is_mobile {
-                        let _ = ctx.gui.render();
-                    }
-                    let result: Result<(), three_d::CoreError> = Ok(());
-                    return result;
-                });
+            if is_mobile {
+                let _ = ctx
+                    .frame_input
+                    .screen()
+                    .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
+                    .write(|| {
+                        renderer.render(
+                            is_portrait,
+                            ctx.frame_input.viewport,
+                            |i, v, translation| {
+                                let mut camera = get_camera(viewport, camera_delta, xy_vec);
+                                camera.set_viewport(v);
+                                camera
+                                    .translate(camera.right_direction().normalize() * translation);
+                                room.render(&camera, &[&light]);
+                                forklift.render(&camera, &[&light]);
+                                if is_mobile && i == 0 {
+                                    //let _ = ctx.gui.render();
+                                }
+                            },
+                        );
+                        if !is_mobile {
+                            let _ = ctx.gui.render();
+                        }
+                        let result: Result<(), three_d::CoreError> = Ok(());
+                        return result;
+                    });
+            } else {
+                let _ = ctx
+                    .frame_input
+                    .screen()
+                    .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
+                    .write(|| {
+                        let mut camera = get_camera(viewport, camera_delta, xy_vec);
+                        camera.set_viewport(viewport);
+                        room.render(&camera, &[&light]);
+                        forklift.render(&camera, &[&light]);
+                        return ctx.gui.render();
+                    });
+            }
         });
     })
 }
