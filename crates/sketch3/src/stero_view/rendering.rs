@@ -134,7 +134,7 @@ impl Renderer {
         &mut self,
         is_portrait: bool,
         viewport: Viewport,
-        mut render: impl FnMut(Viewport, f32),
+        mut render: impl FnMut(usize, Viewport, f32),
     ) {
         let w = viewport.width / 2;
         let h = viewport.height / 2;
@@ -205,7 +205,7 @@ impl Renderer {
         .write(|| {
             let result: Result<(), crate::CoreError> = Ok(());
             for (i,v) in viewports2.iter().enumerate() {
-                render(v.clone(), translations[i]);
+                render(i, v.clone(), translations[i]);
             }
             return result;
         });

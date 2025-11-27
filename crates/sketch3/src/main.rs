@@ -470,6 +470,26 @@ impl<'a> Context3d<'a> {
         );
     }
 }
+#[cfg(target_arch = "wasm32")]
+pub fn is_mobile() -> bool {
+    // Access window → navigator → userAgent
+    let ua = web_sys::window()
+        .and_then(|w| w.navigator().user_agent().ok())
+        .unwrap_or_default()
+        .to_lowercase();
+
+    // Simple but effective mobile detection
+    ua.contains("iphone")
+        || ua.contains("ipad")
+        || ua.contains("ipod")
+        || ua.contains("android")
+        || ua.contains("mobile")
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn is_mobile() -> bool {
+    false
+}
 
 fn get_camera(viewport: Viewport, mut alpfa: f32, gamma: f32) -> Camera2 {
     let mut camera = Camera2::new_perspective(
@@ -497,13 +517,11 @@ fn get_camera(viewport: Viewport, mut alpfa: f32, gamma: f32) -> Camera2 {
     return camera;
 }
 fn main() {
-    // head_tracking::request_device_motion_permission();
-    // head_tracking::request_orientation_motion_permission();
-
     run("sketch3", move |c| {
         let mut tracker = OrientationTracker::new();
         let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
+        let is_mobile = is_mobile();
 
         let mut started = false;
 
@@ -564,79 +582,38 @@ fn main() {
         let mut camera = get_camera(viewport, 0., 0.);
 
         return Box::new(move |mut ctx| {
-            let pose =
-                head_tracking::get_pose_now(head_tracking::ViewportOrientation::LandscapeLeft);
-
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
-                if !started {
+                if is_mobile && !started {
                     tracker.start(egui_ctx.clone());
                     started = true;
-                    SidePanel::left("side_panel").show(egui_ctx, |ui| {
-                        // if let Some((pose, count)) = &pose {
-                        //     ui.label(format!("{:?}", pose.orientation));
-                        //     ui.label(format!("{:?}", pose.position));
-                        //     ui.label(format!("{:?}", count));
-                        // } else {
-                        //     if ui.button("Test").clicked() {
-                        //         head_tracking::request_device_motion_permission();
-                        //         head_tracking::request_orientation_motion_permission();
-                        //         // head_tracking::start_head_tracking();
-                        //         tracker.start(ui.ctx().clone());
-                        //     }
-                        // }
-                        if ui.button("Test").clicked() {
-                            head_tracking::request_device_motion_permission();
-                            head_tracking::request_orientation_motion_permission();
-                            // head_tracking::start_head_tracking();
-                            tracker.start(ui.ctx().clone());
-                            started = true;
-                        }
-                        {
-                            let o = tracker.o.lock();
-                            let c = o.ahrs.quaternion().coords;
-                            let q = glam::Quat::from_xyzw(c.x, c.y, c.z, c.w);
-                            // ui.label(format!("{:.2} {:.2} {:.2} {:.2}", c.x, c.y, c.z, c.w));
-                            ui.label(format!(
-                                "alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ",
-                                o.alpha, o.beta, o.gamma
-                            ));
-                        }
-                        ui.horizontal(|ui| {
-                            if ui.button("-").clicked() {
-                                // pi std::f32::consts::PI
-                                // 2x pi =  std::f32::consts::TAU
-                                camera.rotate_around_with_fixed_up(camera.position, -0.1, 0.);
-                            }
-                            if ui.button("+").clicked() {
-                                camera.rotate_around_with_fixed_up(camera.position, 0.1, 0.);
-                            }
-                        });
-                        ui.horizontal(|ui| {
-                            if ui.button("-").clicked() {
-                                camera.rotate_around_with_fixed_up(camera.position, 0., -0.1);
-                            }
-                            if ui.button("+").clicked() {
-                                camera.rotate_around_with_fixed_up(camera.position, 0., 0.1);
-                            }
-                        });
-                    });
                 }
+                SidePanel::left("side_panel").show(egui_ctx, |ui| {
+                    let mut o = tracker.o.lock();
+                    ui.label(format!(
+                        "alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ",
+                        o.alpha, o.beta, o.gamma
+                    ));
+                    if !is_mobile {
+                        ui.horizontal(|ui| {
+                            if ui.button("-").clicked() {
+                                o.alpha -= 0.1;
+                            }
+                            if ui.button("+").clicked() {
+                                o.alpha += 0.1;
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            if ui.button("-").clicked() {
+                                o.gamma -= 0.1;
+                            }
+                            if ui.button("+").clicked() {
+                                o.gamma += 0.1;
+                            }
+                        });
+                    }
+                });
             });
-
-            // if let Some((pose, count)) = &pose {
-            //     let o = glam::DMat4::from_quat(pose.orientation);
-            //     // let view = camera.view();
-            //     // let target = camera.target();
-            //     // let target = (
-            //     //     maps::dglam_to_three_d(&o)
-            //     //     * target.extend(1.0))
-            //     // .truncate();
-            //     // let p = camera.position();
-            //     // let up = camera.up();
-            //     // camera.set_view(p, target, up);
-            //     camera.view = maps::dglam_to_three_d(&o);
-            // }
 
             let (mut alpha, mut gamma) = (0., 0.);
             {
@@ -650,44 +627,28 @@ fn main() {
                 .screen()
                 .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
                 .write(|| {
-                    renderer.render(is_portrait, ctx.frame_input.viewport, |v, translation| {
-                        let mut camera = get_camera(viewport, alpha as f32, gamma as f32);
-                        camera.set_viewport(v);
-                        camera.translate(camera.right_direction().normalize() * translation);
-                        room.render(&camera, &[&light]);
-                        forklift.render(&camera, &[&light]);
-                    });
-                    // return ctx.gui.render();
+                    renderer.render(
+                        is_portrait,
+                        ctx.frame_input.viewport,
+                        |i, v, translation| {
+                            let mut camera = get_camera(viewport, alpha as f32, gamma as f32);
+                            camera.set_viewport(v);
+                            camera.translate(camera.right_direction().normalize() * translation);
+                            room.render(&camera, &[&light]);
+                            forklift.render(&camera, &[&light]);
+                            if is_mobile && i == 0 {
+                                let _ = ctx.gui.render();
+                            }
+                        },
+                    );
+                    if !is_mobile {
+                        let _ = ctx.gui.render();
+                    }
                     let result: Result<(), three_d::CoreError> = Ok(());
                     return result;
                 });
         });
     })
-}
-
-fn quat_from_device_orientation(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -> glam::DQuat {
-    let alpha = deg_to_rad(alpha_deg);
-    let beta = deg_to_rad(beta_deg);
-    let gamma = deg_to_rad(gamma_deg);
-
-    // Axis vectors
-    let z_axis = glam::DVec3::Z;
-    let x_axis = glam::DVec3::X;
-    let y_axis = glam::DVec3::Y;
-
-    // Individual quaternions (intrinsic rotations):
-    // Note: order is important – here: Z → X → Y
-    let q_alpha = glam::DQuat::from_axis_angle(z_axis, alpha);
-    let q_beta = glam::DQuat::from_axis_angle(x_axis, beta);
-    let q_gamma = glam::DQuat::from_axis_angle(y_axis, gamma);
-
-    // Combine in the same order as applied in the device frame.
-    // For intrinsic rotations, the composition is q = q_z * q_x * q_y
-    q_alpha * q_beta * q_gamma
-}
-
-fn deg_to_rad(deg: f64) -> f64 {
-    deg * std::f64::consts::PI / 180.0
 }
 
 #[derive(Clone, Debug)]
