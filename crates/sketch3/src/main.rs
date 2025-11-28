@@ -19,6 +19,7 @@ pub mod head_tracking;
 pub mod maps;
 pub mod orientation;
 pub mod stero_view;
+pub mod physics;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -526,13 +527,16 @@ fn transform_vec(xy: glam::Vec2) -> glam::Vec2 {
 
 fn main() {
     run("sketch3", move |c| {
-        let mut gamepads = gamepads::Gamepads::new();
+        // let mut gamepads = gamepads::Gamepads::new();
         let mut tracker = OrientationTracker::new();
         let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
         let is_mobile = is_mobile();
         let mut xy_vec = glam::Vec2::ZERO;
-        let mut camera_delta = vec3(0.0, 2.0, 0.0);
+        let mut camera_delta = vec3(0.0, 0.0, 0.0);
+
+        let mut cam = get_camera(viewport, camera_delta, xy_vec);
+        cam.set_viewport(viewport);
 
         let mut started = false;
 
@@ -592,19 +596,19 @@ fn main() {
         let forklift_trans = forklift.transformation();
 
         return Box::new(move |mut ctx| {
-            gamepads.poll();
+            // gamepads.poll();
 
-            for gamepad in gamepads.all() {
-                let (r_x, r_y) = gamepad.right_stick();
-                let r_delta = glam::vec2(r_x, r_y);
-                let (l_x, l_y) = gamepad.left_stick();
-                let l_delta = glam::vec2(l_x, l_y);
-                if !is_mobile {
-                    xy_vec += r_delta * 0.01;
-                }
-                camera_delta.x += l_delta.y * 0.1;
-            }
-            forklift.set_transformation(Mat4::from_translation(camera_delta) * forklift_trans);
+            // for gamepad in gamepads.all() {
+            //     let (r_x, r_y) = gamepad.right_stick();
+            //     let r_delta = glam::vec2(r_x, r_y);
+            //     let (l_x, l_y) = gamepad.left_stick();
+            //     let l_delta = glam::vec2(l_x, l_y);
+            //     if !is_mobile {
+            //         xy_vec += r_delta * 0.01;
+            //     }
+            //     camera_delta.x += l_delta.y * 0.1;
+            // }
+            // forklift.set_transformation(Mat4::from_translation(camera_delta) * forklift_trans);
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
@@ -654,15 +658,22 @@ fn main() {
                         return result;
                     });
             } else {
+                let target = cam.target();
+                orbit_control_handle_events(
+                    &mut cam,
+                    &mut ctx.frame_input.events,
+                    target,
+                    0.1,
+                    1000.,
+                );
                 let _ = ctx
                     .frame_input
                     .screen()
                     .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
                     .write(|| {
-                        let mut camera = get_camera(viewport, camera_delta, xy_vec);
-                        camera.set_viewport(viewport);
-                        room.render(&camera, &[&light]);
-                        forklift.render(&camera, &[&light]);
+                        room.render(&cam, &[&light]);
+                        forklift.render(&cam, &[&light]);
+
                         return ctx.gui.render();
                     });
             }
@@ -1141,4 +1152,49 @@ impl Camera2 {
             0.0
         }
     }
+}
+
+pub fn orbit_control_handle_events(
+    camera: &mut Camera2,
+    events: &mut [Event],
+    target: Vec3,
+    min: f32,
+    max: f32,
+) -> bool {
+    let mut change = false;
+    for event in events.iter_mut() {
+        match event {
+            Event::MouseMotion {
+                delta,
+                button,
+                handled,
+                ..
+            } => {
+                if !*handled && Some(MouseButton::Left) == *button {
+                    let speed = 0.01;
+                    camera.rotate_around_with_fixed_up(target, speed * delta.0, speed * delta.1);
+                    *handled = true;
+                    change = true;
+                }
+            }
+            Event::MouseWheel { delta, handled, .. } => {
+                if !*handled {
+                    let speed = 0.01 * target.distance(camera.position()) + 0.001;
+                    camera.zoom_towards(target, speed * delta.1, min, max);
+                    *handled = true;
+                    change = true;
+                }
+            }
+            Event::PinchGesture { delta, handled, .. } => {
+                if !*handled {
+                    let speed = target.distance(camera.position()) + 0.1;
+                    camera.zoom_towards(target, speed * *delta, min, max);
+                    *handled = true;
+                    change = true;
+                }
+            }
+            _ => {}
+        }
+    }
+    change
 }
