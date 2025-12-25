@@ -1,5 +1,6 @@
 pub struct Context<'a> {
     pub ui: &'a mut egui::Ui,
+    pub frame: &'a mut eframe::Frame,
     pub needs_save: &'a mut Option<String>,
 }
 
@@ -52,7 +53,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             let context = Context {
-                ui,
+                ui, frame,
                 needs_save: &mut self.needs_save,
             };
 

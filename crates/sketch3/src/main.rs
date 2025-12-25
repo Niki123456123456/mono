@@ -18,8 +18,9 @@ pub mod export;
 pub mod head_tracking;
 pub mod maps;
 pub mod orientation;
-pub mod stero_view;
 pub mod physics;
+pub mod stero_view;
+pub mod threed_view;
 
 pub struct SelectedPart {
     pub part: bricks::Part,
@@ -496,7 +497,7 @@ fn get_camera(viewport: Viewport, position: Vec3, v: glam::Vec2) -> Camera2 {
     let mut camera = Camera2::new_perspective(
         viewport,
         vec3(0.0, 2.0, 0.0),
-        vec3(0.0, 2.0, -0.5),
+        vec3(0.5, 2.0, 0.0),
         vec3(0.0, 1.0, 0.0),
         degrees(33.3798 * 2.),
         0.1,
@@ -524,16 +525,20 @@ fn transform_vec(xy: glam::Vec2) -> glam::Vec2 {
     };
     glam::vec2(-a, -g)
 }
-
-fn main() {
+// front x = 0.6 z = 0.85 h = 0.70
+// back  x = 0.6 z = 1.03 h = 0.54
+fn main3() {
     run("sketch3", move |c| {
-        // let mut gamepads = gamepads::Gamepads::new();
+        let mut gamepads = gamepads::Gamepads::new();
         let mut tracker = OrientationTracker::new();
+        let mut physics = physics::Engine::new();
         let viewport: Viewport = c.viewport;
         let is_portrait = viewport.height > viewport.width;
         let is_mobile = is_mobile();
         let mut xy_vec = glam::Vec2::ZERO;
         let mut camera_delta = vec3(0.0, 0.0, 0.0);
+        let mut engine_force_input = 0.;
+        let mut brake_input = 0.;
 
         let mut cam = get_camera(viewport, camera_delta, xy_vec);
         cam.set_viewport(viewport);
@@ -548,6 +553,109 @@ fn main() {
         let mut renderer = stero_view::Renderer::new(&c.ctx, lens, viewport);
 
         let light = AmbientLight::new(&c.ctx, 0.5, Srgba::WHITE);
+
+        let max_distane = 50_000_000.;
+
+        let x_line = Gm::new(
+            LineMesh::from_vector(
+                &c.ctx,
+                vec![
+                    -Vec3::unit_x() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_x() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::RED,
+                    ..Default::default()
+                },
+            ),
+        );
+        let y_line = Gm::new(
+            LineMesh::from_vector(
+                &c.ctx,
+                vec![
+                    -Vec3::unit_y() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_y() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::GREEN,
+                    ..Default::default()
+                },
+            ),
+        );
+        let z_line = Gm::new(
+            LineMesh::from_vector(
+                &c.ctx,
+                vec![
+                    -Vec3::unit_z() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_z() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::BLUE,
+                    ..Default::default()
+                },
+            ),
+        );
+
+        let n = 100;
+        for i in 0..=n {
+            let i_f = i as f32 / n as f32;
+            let v = vec3(0., i_f.sin(), i_f.cos());
+        }
+        let v: Vec<_> = (0..=n)
+            .into_iter()
+            .map(|i| {
+                let i_f = i as f32 / n as f32 * std::f32::consts::TAU;
+                let v = vec3(i_f.cos(), i_f.sin(), 0.);
+                return v;
+            })
+            .collect();
+
+        let mut circle = Gm::new(
+            LineMesh::from_vector(&c.ctx, v),
+            ColorMaterial::new(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::GREEN,
+                    ..Default::default()
+                },
+            ),
+        );
+        let mut circle_x = 0.;
+        let mut circle_z = 0.;
+        let mut circle_scale = 0.5;
+
+        let mut ground = three_d::CpuMesh::cube();
+        ground
+            .transform(
+                Mat4::from_translation(vec3(0., -0.1, 0.))
+                    * Mat4::from_nonuniform_scale(100., 0.1, 100.),
+            )
+            .unwrap();
+        let mut ground = three_d::Gm::new(
+            three_d::Mesh::new(&c.ctx, &ground),
+            ColorMaterial::new(
+                &c.ctx,
+                &CpuMaterial {
+                    albedo: Srgba::new(128, 128, 128, 255),
+                    ..Default::default()
+                },
+            ),
+        );
 
         let mut assets = three_d_asset::io::RawAssets::new();
         assets.insert(
@@ -564,7 +672,15 @@ fn main() {
         );
         assets.insert(
             "forklift_body.obj",
-            include_bytes!("assets/forklift_body.obj").to_vec(),
+            include_bytes!("assets/forklift.obj").to_vec(),
+        );
+        assets.insert(
+            "T_forklift_normal.png",
+            include_bytes!("assets/T_forklift_normal.png").to_vec(),
+        );
+        assets.insert(
+            "T_forklift_reflection.png",
+            include_bytes!("assets/T_forklift_reflection.png").to_vec(),
         );
 
         let room_texture: CpuTexture = assets.deserialize("CubeRoom_BakedDiffuse.png").unwrap();
@@ -581,6 +697,9 @@ fn main() {
         );
 
         let forklift_texture: CpuTexture = assets.deserialize("T_forklift_diffuse.png").unwrap();
+        let forklift_normal: CpuTexture = assets.deserialize("T_forklift_normal.png").unwrap();
+        let forklift_reflection: CpuTexture =
+            assets.deserialize("T_forklift_reflection.png").unwrap();
         let forklift_mesh: CpuMesh = assets.deserialize("forklift_body.obj").unwrap();
 
         let mut forklift = Gm::new(
@@ -589,6 +708,8 @@ fn main() {
                 &c.ctx,
                 &CpuMaterial {
                     albedo_texture: Some(forklift_texture),
+                    normal_texture: Some(forklift_normal),
+                    metallic_roughness_texture: Some(forklift_reflection),
                     ..Default::default()
                 },
             ),
@@ -622,8 +743,26 @@ fn main() {
                         "alpa: {:.2}\nbeta: {:.2}\ngamma: {:.2} ",
                         xy_vec.x, xy_vec.y, o.gamma
                     ));
+                    Slider::new(&mut circle_z, (0.)..=3.).ui(ui);
+                    Slider::new(&mut circle_x, (-3.)..=3.).ui(ui);
+                    Slider::new(&mut circle_scale, (0.)..=3.).ui(ui);
+                    circle.transformation =
+                        Mat4::from_translation(vec3(-circle_x, circle_scale, circle_z))
+                            * Mat4::from_scale(circle_scale);
+                });
+                egui_ctx.input(|i| {
+                    if i.key_down(Key::W) {
+                        engine_force_input = 0.1;
+                    } else if i.key_down(Key::S) {
+                        engine_force_input = -0.1;
+                    } else {
+                        engine_force_input = 0.0;
+                    }
                 });
             });
+
+            physics.update_vehicle_inputs(0., engine_force_input, brake_input);
+            physics.update(0.1);
 
             if is_mobile {
                 let o = tracker.o.lock();
@@ -671,8 +810,17 @@ fn main() {
                     .screen()
                     .clear(ClearState::color_and_depth(0.1, 0.1, 0.1, 1.0, 1.0))
                     .write(|| {
-                        room.render(&cam, &[&light]);
+                        //room.render(&cam, &[&light]);
+                        forklift.set_transformation(
+                            Mat4::from_translation(vec3(0., -2., 0.)) * physics.vehicle_transform(),
+                        );
                         forklift.render(&cam, &[&light]);
+
+                        x_line.render(&cam, &[&light]);
+                        y_line.render(&cam, &[&light]);
+                        z_line.render(&cam, &[&light]);
+                        ground.render(&cam, &[&light]);
+                        circle.render(&cam, &[&light]);
 
                         return ctx.gui.render();
                     });
@@ -1197,4 +1345,120 @@ pub fn orbit_control_handle_events(
         }
     }
     change
+}
+
+pub fn main() {
+    common::app::run("sketch3", |cc| {
+        let mut context: three_d::Context =
+            three_d::Context::from_gl_context(cc.gl.as_ref().unwrap().clone()).unwrap();
+        let mut camera: three_d::Camera = three_d::Camera::new_perspective(
+            three_d::Viewport {
+                x: 0,
+                y: 0,
+                width: 1024,
+                height: 1024,
+            },
+            three_d::vec3(5.0, 2.0, 2.5),
+            three_d::vec3(0.0, 0.0, -0.5),
+            three_d::vec3(0.0, 1.0, 0.0),
+            three_d::degrees(45.0),
+            0.1,
+            1000.0,
+        );
+
+        let light: three_d::AmbientLight =
+            three_d::AmbientLight::new(&context, 0.5, three_d::Srgba::WHITE);
+
+        let cube: three_d::Gm<three_d::Mesh, three_d::PhysicalMaterial> = three_d::Gm::new(
+            three_d::Mesh::new(&context, &three_d::CpuMesh::cube()),
+            three_d::PhysicalMaterial::new_transparent(
+                &context,
+                &three_d::CpuMaterial {
+                    albedo: three_d::Srgba {
+                        r: 0,
+                        g: 0,
+                        b: 255,
+                        a: 255,
+                    },
+                    ..Default::default()
+                },
+            ),
+        );
+
+        let mut tile_cache = maps::TileCache::new(
+            &context,
+            "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string(),
+        );
+
+        let max_distane = 50_000_000.;
+
+        let x_line = Gm::new(
+            LineMesh::from_vector(
+                &context,
+                vec![
+                    -Vec3::unit_x() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_x() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &context,
+                &CpuMaterial {
+                    albedo: Srgba::RED,
+                    ..Default::default()
+                },
+            ),
+        );
+        let y_line = Gm::new(
+            LineMesh::from_vector(
+                &context,
+                vec![
+                    -Vec3::unit_y() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_y() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &context,
+                &CpuMaterial {
+                    albedo: Srgba::GREEN,
+                    ..Default::default()
+                },
+            ),
+        );
+        let z_line = Gm::new(
+            LineMesh::from_vector(
+                &context,
+                vec![
+                    -Vec3::unit_z() * max_distane,
+                    Vec3::zero(),
+                    Vec3::zero(),
+                    Vec3::unit_z() * max_distane,
+                ],
+            ),
+            ColorMaterial::new(
+                &context,
+                &CpuMaterial {
+                    albedo: Srgba::BLUE,
+                    ..Default::default()
+                },
+            ),
+        );
+
+        return Box::new(move |mut ctx| {
+            let size = (&ctx.ui).available_size_before_wrap();
+
+            threed_view::show("main", ctx.ui, ctx.frame, size, |context, viewport| {
+                x_line.render(&camera, &[&light]);
+                y_line.render(&camera, &[&light]);
+                z_line.render(&camera, &[&light]);
+                camera.set_viewport(viewport);
+                tile_cache.load(context);
+                tile_cache.render(&camera, &[&light]);
+                //cube.render(&camera, &[&light]);
+            });
+        });
+    });
 }

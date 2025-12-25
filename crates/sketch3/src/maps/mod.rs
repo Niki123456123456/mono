@@ -272,6 +272,7 @@ pub fn render_tile(
                     m.color = three_d::Srgba::RED;
                 }
                 if is_visible {
+                    println!("render edges");
                     t.edges.render_with_material(&m, camera, lights);
                 }
             }

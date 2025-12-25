@@ -67,12 +67,12 @@ pub fn show_vault_secrets(ui: &mut egui::Ui, text: &str, json: &ReadOnlyTextBuff
 pub fn show_text(ui: &mut egui::Ui, text: &ReadOnlyTextBuffer) {
     let theme = egui_extras::syntax_highlighting::CodeTheme::default();
 
-    let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+    let mut layouter = |ui: &egui::Ui, string: &dyn egui::TextBuffer, wrap_width: f32| {
         let mut layout_job = egui_extras::syntax_highlighting::highlight(
             ui.ctx(),
             ui.style(),
             &theme,
-            string,
+            string.as_str(),
             "json",
         );
         layout_job.wrap.max_width = wrap_width;
@@ -95,6 +95,8 @@ pub struct ReadOnlyTextBuffer {
 }
 
 impl egui::TextBuffer for ReadOnlyTextBuffer {
+    fn type_id(&self) -> std::any::TypeId { std::any::TypeId::of::<Self>() }
+
     fn is_mutable(&self) -> bool {
         false
     }

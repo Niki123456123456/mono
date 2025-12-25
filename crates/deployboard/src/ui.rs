@@ -229,12 +229,12 @@ pub fn show_text<T: serde::de::DeserializeOwned + serde::Serialize>(ui: &mut Ui,
 
     let theme = egui_extras::syntax_highlighting::CodeTheme::default();
 
-    let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
+    let mut layouter = |ui: &egui::Ui, string: &dyn egui::TextBuffer, wrap_width: f32| {
         let mut layout_job = egui_extras::syntax_highlighting::highlight(
             ui.ctx(),
             ui.style(),
             &theme,
-            string,
+            string.as_str(),
             "json",
         );
         layout_job.wrap.max_width = wrap_width;

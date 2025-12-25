@@ -1,4 +1,5 @@
 target
+crates/jira
 crates/*/dist
 crates/sketch3/src/bricks/ldraw/*
 .DS_Store

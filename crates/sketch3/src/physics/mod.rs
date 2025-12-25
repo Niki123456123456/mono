@@ -17,7 +17,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let integration_params: IntegrationParameters = IntegrationParameters::default();
         let mut physics_pipeline: PhysicsPipeline = PhysicsPipeline::new();
         let mut island_manager: IslandManager = IslandManager::new();
@@ -29,33 +29,43 @@ impl Engine {
         let mut broad_phase: BroadPhaseBvh = DefaultBroadPhase::new();
         let mut narrow_phase: NarrowPhase = NarrowPhase::new();
 
-        let car_body = RigidBodyBuilder::dynamic()
-            .translation(vector![0.0, 1.0, 0.0])
-            .build();
-        let car_handle = rigid_body_set.insert(car_body);
+        let plane_handle = rigid_body_set.insert(RigidBodyBuilder::fixed()
+            .translation(vector![0.0, -0.1, 0.0])
+            .build());
+        collider_set.insert_with_parent(ColliderBuilder::cuboid(100., 0.1, 100.).build(), plane_handle, &mut rigid_body_set);
 
-        let chassis_collider = ColliderBuilder::cuboid(1.0, 0.25, 2.0).build();
-        collider_set.insert_with_parent(chassis_collider, car_handle, &mut rigid_body_set);
+
+
+        let car_handle = rigid_body_set.insert(RigidBodyBuilder::dynamic()
+            .translation(vector![0.0, 2.0, 0.0])
+            .build());
+        collider_set.insert_with_parent(ColliderBuilder::cuboid(1.0, 0.25, 2.0).build(), car_handle, &mut rigid_body_set);
+
+        
+
 
         let mut vehicle: DynamicRayCastVehicleController =
             DynamicRayCastVehicleController::new(car_handle);
 
-        let hw = 0.3;
-        let hh = 0.15;
+        // front_x = 0.85 y_radius = 0.70 half_width_z = 0.6
+        // back_x  = 1.03 y_radius = 0.54 half_width_z = 0.6
+
+        let half_width_z = 0.6;
+        let half_height = 0.15;
         let wheel_positions = [
-            point![hw * 1.5, -hh, hw],
-            point![hw * 1.5, -hh, -hw],
-            point![-hw * 1.5, -hh, hw],
-            point![-hw * 1.5, -hh, -hw],
+            (point![0.85, -1. + 0.35, half_width_z], 0.70),
+            (point![0.85, -1. + 0.35, -half_width_z], 0.70),
+            (point![-1.03, -1. + 0.27, half_width_z], 0.54),
+            (point![-1.03, -1. + 0.27, -half_width_z], 0.54),
         ];
 
-         let tuning = WheelTuning {
-        suspension_stiffness: 100.0,
-        suspension_damping: 10.0,
-        ..WheelTuning::default()
-    };
-        for pos in wheel_positions {
-            vehicle.add_wheel(pos, -Vector::y(), Vector::z(), hh, hh / 4.0, &tuning);
+        let tuning = WheelTuning {
+            suspension_stiffness: 100.0,
+            suspension_damping: 10.0,
+            ..WheelTuning::default()
+        };
+        for (pos, radius) in wheel_positions {
+            vehicle.add_wheel(pos, -Vector::y(), Vector::z(), 0.1, radius, &tuning);
         }
 
         Self {
@@ -73,15 +83,15 @@ impl Engine {
         }
     }
 
-    fn update_vehicle_inputs(
-        vehicle: &mut DynamicRayCastVehicleController,
+    pub fn update_vehicle_inputs(
+        &mut self,
         steering_input: f32,
         engine_force_input: f32,
         brake_input: f32,
     ) {
         // We assume wheel indices:
         // 0: front-right, 1: front-left, 2: rear-right, 3: rear-left
-        let wheels = vehicle.wheels_mut();
+        let wheels = self.vehicle.wheels_mut();
 
         for (i, wheel) in wheels.iter_mut().enumerate() {
             // Reset everything each frame
@@ -99,7 +109,7 @@ impl Engine {
         }
     }
 
-    fn step(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) {
         let gravity = vector![0.0, -9.81, 0.0];
         let queries = self.broad_phase.as_query_pipeline_mut(
             &DefaultQueryDispatcher {},
@@ -124,5 +134,21 @@ impl Engine {
             &(),
             &(),
         );
+    }
+
+    pub fn vehicle_transform(&self) -> three_d::Mat4 {
+        let car_body = &self.rigid_body_set[self.vehicle.chassis];
+        let iso = car_body.position();
+        use glam::{Mat4, Quat, Vec3};
+        let translation = Vec3::new(iso.translation.x, iso.translation.y, iso.translation.z);
+
+        let rotation = Quat::from_xyzw(
+            iso.rotation.i,
+            iso.rotation.j,
+            iso.rotation.k,
+            iso.rotation.w,
+        );
+        let model_matrix: Mat4 = Mat4::from_rotation_translation(rotation, translation);
+        return crate::maps::glam_to_three_d(&model_matrix);
     }
 }
