@@ -214,27 +214,29 @@ pub async fn get_image<'a>(
                 &identifier.path,
                 &identifier.tag,
             ).await;
-            if let Ok(artifact) = artifact {
-                let artifacts = crate::adapters::harbor::get_artifacts(
-                    &config.harbor.connection,
-                    &identifier.project,
-                    &identifier.path,
-                    "-push_time",
-                    20,
-                ).await
-                .unwrap_or_else(|err| {
-                    eprintln!("Could not load image choices: {}", err);
-                    Vec::new()
-                });
-                return Some(crate::models::Image {
-                    source_path: field.path,
-                    identifier,
-                    artifact,
-                    artifacts,
-                    envs: vec![],
-                    envs_json: Default::default(),
-                });
-            }
+            let artifact = artifact.map_err(|err| {
+                eprintln!("Could not load current image {}/{}:{}: {}", identifier.project, identifier.path, identifier.tag, err);
+                err
+            }).ok();
+            let artifacts = crate::adapters::harbor::get_artifacts(
+                &config.harbor.connection,
+                &identifier.project,
+                &identifier.path,
+                "-push_time",
+                20,
+            ).await
+            .unwrap_or_else(|err| {
+                eprintln!("Could not load image choices: {}", err);
+                Vec::new()
+            });
+            return Some(crate::models::Image {
+                source_path: field.path,
+                identifier,
+                artifact,
+                artifacts,
+                envs: vec![],
+                envs_json: Default::default(),
+            });
         }
     }
     return None;

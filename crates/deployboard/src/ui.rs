@@ -53,7 +53,9 @@ pub fn show_project(
                                 }
                                 for image in content.images.iter_mut() {
                                     
-                                    let tags : Vec<_> = image.artifact.tags.iter().map(|x|x.name.as_str()).collect();
+                                    let tags: Vec<_> = image.artifact.as_ref()
+                                        .map(|artifact| artifact.tags.iter().map(|tag| tag.name.as_str()).collect())
+                                        .unwrap_or_else(|| vec![image.identifier.tag.as_str()]);
                                     ui.horizontal(|ui| {
                                         let resp = ui.label(format!(
                                             "{}: {}",
@@ -93,7 +95,13 @@ pub fn show_project(
                                                                 egui::TextEdit::singleline(&mut commit_message).desired_width(ui.available_width()).ui(ui);
                                                             });
                                                             ui.columns(2, |columns: &mut [Ui]| {
-                                                                show_artifact(&mut columns[0], &image.artifact, "old");
+                                                                if let Some(artifact) = &image.artifact {
+                                                                    show_artifact(&mut columns[0], artifact, "old");
+                                                                } else {
+                                                                    columns[0].label("old");
+                                                                    columns[0].label(image.identifier.to_string_with_tag(&image.identifier.tag));
+                                                                    columns[0].label("Current image details unavailable");
+                                                                }
                                                                 show_artifact(&mut columns[1], &new_artifact, "new");
                                                             });
                                                             
