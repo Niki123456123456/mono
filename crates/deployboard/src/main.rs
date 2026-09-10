@@ -9,6 +9,7 @@ mod config;
 mod core;
 mod models;
 mod ui;
+mod ui_bulk_images;
 mod ui_save_env;
 mod ui_save_vault;
 mod ui_settings;

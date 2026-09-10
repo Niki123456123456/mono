@@ -12,6 +12,9 @@ pub fn show_project(
     if !search.is_empty() && !project.name.contains(search) {
         return;
     }
+    if project.details_open {
+        crate::ui_bulk_images::show(project, config, ui, modals);
+    }
     ui.columns(envs.len(), |columns: &mut [Ui]| {
         for (i, &env) in envs.iter().enumerate() {
             let ui = &mut columns[i];
