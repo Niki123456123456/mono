@@ -67,6 +67,8 @@ pub fn show_project(
                                            
                                             ui.menu_button("change to image", |ui| {
                                                 for artifact in image.artifacts.iter() {
+                                                    let Some(new_tag) = artifact.preferred_tag() else { continue; };
+                                                    let new_tag = new_tag.to_owned();
                                                     let tags : Vec<_> = artifact.tags.iter().map(|x|x.name.as_str()).collect();
                                                     if ui.button(format!(
                                                         "{}", tags.join(" | ")
@@ -79,12 +81,12 @@ pub fn show_project(
                                                         let raw = content.raw.clone();
                                                         let project = deployment.source.gitlab_project.clone();
                                                         let path = deployment.path.clone();
-                                                        let mut commit_message = format!("{} {}: update image to {}", deployment_env, deployment_name, new_artifact.tags[0].name);
-                                                        modals.push(crate::models::Modal::new(format!("{}:{}->{}", deployment.name, artifact.tags[0].name, image.artifact.tags[0].name), move |ui: &mut Ui, ctx: &mut ModalContext| {
+                                                        let mut commit_message = format!("{} {}: update image to {}", deployment_env, deployment_name, new_tag);
+                                                        modals.push(crate::models::Modal::new(format!("{}:{}->{}", deployment.name, image.identifier.tag, new_tag), move |ui: &mut Ui, ctx: &mut ModalContext| {
                                                             
                                                             ui.set_width(750.0);
 
-                                                            ui.heading(format!("{} {}: Update to {}:{}", deployment_env, deployment_name, image.identifier.path, new_artifact.tags[0].name));
+                                                            ui.heading(format!("{} {}: Update to {}:{}", deployment_env, deployment_name, image.identifier.path, new_tag));
 
                                                             ui.horizontal(|ui|{
                                                                 ui.label("commit message ");
@@ -103,7 +105,7 @@ pub fn show_project(
                                                                     if ui.button("Save").clicked() {
                                                                         let mut yaml = serde_yaml::from_str::<serde_yaml::Value>(&raw).unwrap();
 
-                                                                        let new_image = image.identifier.to_string_with_tag(&new_artifact.tags[0].name);
+                                                                        let new_image = format!("{}@{}", image.identifier.to_string_with_tag(&new_tag), new_artifact.digest);
                                                                         crate::yaml::set_field(&mut yaml, &image.source_path, &serde_yaml::Value::String(new_image.clone()), false);
                                                                         let new_text = serde_yaml::to_string(&yaml).unwrap();
                                                                         ctx.close = true;
@@ -204,6 +206,7 @@ pub fn show_artifact(ui: &mut Ui, artifact: & crate::adapters::harbor::Artifact,
     let tags : Vec<_> = artifact.tags.iter().map(|x|x.name.as_str()).collect();
     ui.label(text);
     ui.label( tags.join(" "));
+    ui.label(&artifact.digest);
     ui.label( artifact.push_time.format("%d.%m.%Y %H:%M").to_string());
 }
 
@@ -254,4 +257,3 @@ pub fn show_text<T: serde::de::DeserializeOwned + serde::Serialize>(ui: &mut Ui,
 
    
 }
-

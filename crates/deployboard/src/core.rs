@@ -222,7 +222,10 @@ pub async fn get_image<'a>(
                     "-push_time",
                     20,
                 ).await
-                .unwrap_or_default();
+                .unwrap_or_else(|err| {
+                    eprintln!("Could not load image choices: {}", err);
+                    Vec::new()
+                });
                 return Some(crate::models::Image {
                     source_path: field.path,
                     identifier,

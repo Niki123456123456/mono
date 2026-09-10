@@ -3208,18 +3208,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c5cedc30da3a610cac6b4ba17597bdf7152cf974e8aab3afb3d54455e371c8"
 
 [[package]]
-name = "imperium_invictum"
-version = "0.1.0"
-dependencies = [
- "common",
- "egui 0.32.3",
- "egui_extras",
- "poll-promise",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "indenter"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3324,22 +3312,6 @@ name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
-
-[[package]]
-name = "jira"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "common",
- "egui 0.32.3",
- "egui_glow 0.33.2",
- "serde",
- "serde_json",
- "sha2",
- "urlencoding",
- "uuid",
-]
 
 [[package]]
 name = "jni"
