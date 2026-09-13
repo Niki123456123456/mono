@@ -67,7 +67,7 @@ pub fn show_project(
                                         resp.context_menu(|ui|{
                                             ui.hyperlink_to(
                                                 "src",
-                                                &format!("{}/harbor/projects/{}/repositories/{}/artifacts-tab", config.harbor.connection.endpoint, config.harbor.project_id, urlencoding::encode(&image.identifier.path)),
+                                                &format!("{}/harbor/projects/{}/repositories/{}/artifacts-tab", config.harbor.connection.endpoint, urlencoding::encode(&image.identifier.project), urlencoding::encode(&image.identifier.path)),
                                             );
                                            
                                             ui.menu_button("change to image", |ui| {
