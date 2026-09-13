@@ -40,12 +40,35 @@ jobs:
         run: cargo build --locked --release --package deployboard --bin deployboard --target "aarch64-apple-darwin"
       - name: Create DMG installer
         run: bash crates/deployboard/package-macos.sh "aarch64-apple-darwin" "apple-silicon"
+      - name: Preserve installer download if publishing fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployboard-macos-apple-silicon
+          path: dist/deployboard-macos-apple-silicon.dmg
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
       - name: Publish installer to GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: deployboard-${{ github.run_number }}-${{ github.run_attempt }}
         run: |
+          set -euo pipefail
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -lt 5 ]; then
+                echo "::warning::GitHub release operation failed (attempt $attempt/5); retrying."
+                sleep "$((attempt * 10))"
+              fi
+            done
+            echo "::error::GitHub release operation failed after 5 attempts. The DMG is available in this run's artifacts."
+            return 1
+          }
           cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
           Deployboard for Apple Silicon (M-series Macs), requiring macOS 13 or later.
 
@@ -53,12 +76,20 @@ jobs:
 
           This build is ad-hoc signed and is not Apple-notarized. See `crates/deployboard/README.md` for first-launch instructions.
           NOTES
-          gh release create "$RELEASE_TAG" \
-            dist/deployboard-macos-apple-silicon.dmg \
-            --target "$GITHUB_SHA" \
-            --title "Deployboard Apple Silicon build $GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
-            --notes-file "$RUNNER_TEMP/release-notes.md"
-          release_url="$(gh release view "$RELEASE_TAG" --json url --jq .url)"
+          ensure_release() {
+            # A failed response can still leave a release on GitHub.
+            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+              return 0
+            fi
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Deployboard Apple Silicon build $GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
+              --notes-file "$RUNNER_TEMP/release-notes.md"
+          }
+          retry ensure_release
+          retry gh release upload "$RELEASE_TAG" \
+            dist/deployboard-macos-apple-silicon.dmg --clobber
+          release_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG"
           {
             echo "### Deployboard for Apple Silicon"
             echo "[Download installer from GitHub Releases]($release_url)."
