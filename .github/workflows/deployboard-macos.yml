@@ -1,0 +1,71 @@
+name: Deployboard macOS installer
+
+on:
+  push:
+    paths:
+      - 'crates/deployboard/src/**'
+      - 'crates/deployboard/Cargo.toml'
+      - 'crates/deployboard/package-macos.sh'
+      - 'crates/common/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/deployboard-macos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployboard-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  installer:
+    name: Installer (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: apple-silicon
+            runner: macos-15
+            target: aarch64-apple-darwin
+          - arch: intel
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add "${{ matrix.target }}"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: deployboard-${{ matrix.target }}
+      - name: Build Deployboard
+        run: cargo build --locked --release --package deployboard --bin deployboard --target "${{ matrix.target }}"
+      - name: Create DMG installer
+        run: bash crates/deployboard/package-macos.sh "${{ matrix.target }}" "${{ matrix.arch }}"
+      - name: Upload installer
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployboard-macos-${{ matrix.arch }}
+          path: dist/deployboard-macos-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Add download instructions
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Deployboard for ${{ matrix.arch }}"
+            echo "[Download installer]($ARTIFACT_URL) (retained for 30 days)."
+            echo "Unzip the download, open the DMG, and drag deployboard into Applications."
+            echo "Requires macOS 13 or later. This build is ad-hoc signed and is not Apple-notarized; see crates/deployboard/README.md for first-launch instructions."
+          } >> "$GITHUB_STEP_SUMMARY"
