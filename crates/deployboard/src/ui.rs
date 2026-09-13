@@ -62,6 +62,9 @@ pub fn show_project(
                                     if let Some(name) = &image.name {
                                         ui.horizontal(|ui| {
                                             ui.strong(name);
+                                            if let Some(template) = config.grafana_links.get(&deployment.env) {
+                                                ui.hyperlink_to("logs:grafana", template.url(&deployment.name, name, &deployment.env));
+                                            }
                                             // Disabled until Argo CD login is working.
                                             // if let Some((endpoint, application)) = &argocd {
                                             //     if ui.link("logs:argocd").clicked() {

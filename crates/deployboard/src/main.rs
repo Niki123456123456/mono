@@ -6,6 +6,7 @@ mod adapters {
     pub mod vault;
 }
 mod config;
+mod grafana;
 mod core;
 mod models;
 mod ui;

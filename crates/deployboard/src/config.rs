@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Default)]
 pub struct Config {
+    #[serde(default)]
+    pub grafana_links: HashMap<String, crate::grafana::LinkTemplate>,
     pub gitlab: crate::adapters::gitlab::Config,
     pub vault: crate::adapters::vault::Config,
     pub harbor: crate::adapters::harbor::Config,
