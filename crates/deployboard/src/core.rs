@@ -119,7 +119,7 @@ pub fn fill_deployment(
                     Default::default(),
                 )
                 .into_iter(){
-                    if let Some(image) = get_image(field, &config).await {
+                    if let Some(image) = get_image(field, &parsed, &config).await {
                         images.push(image);
                     }
                 }
@@ -182,10 +182,29 @@ pub async fn get_secret<'a>(
     return None;
 }
 
+fn image_deployed_name(yaml: &serde_yaml::Value, path: &crate::yaml::Path) -> Option<String> {
+    for depth in (0..path.len()).rev() {
+        let parent = path[..depth].iter().try_fold(yaml, |value, entry| match entry {
+            crate::yaml::PathEntry::Index(index) => value.get(*index),
+            crate::yaml::PathEntry::Field(key) => value.get(key.as_str()),
+        });
+        if let Some(name) = parent.and_then(|value| value.get("name")).and_then(crate::yaml::as_string) {
+            return Some(name);
+        }
+        // Stay within the component/container that owns this image.
+        if depth > 0 && matches!(path[depth - 1], crate::yaml::PathEntry::Index(_)) {
+            break;
+        }
+    }
+    None
+}
+
 pub async fn get_image<'a>(
     field: crate::yaml::YamlField<'a>,
+    yaml: &serde_yaml::Value,
     config: &crate::config::Config,
 ) -> Option<crate::models::Image> {
+    let name = image_deployed_name(yaml, &field.path);
     let image_regex =
         regex::Regex::new(r"(?<domain>[^:/]+)\/(?<project>[^:/]+)\/(?<path>[^:]+):(?<tag>[^:/@]+)")
             .unwrap();
@@ -230,6 +249,7 @@ pub async fn get_image<'a>(
                 Vec::new()
             });
             return Some(crate::models::Image {
+                name,
                 source_path: field.path,
                 identifier,
                 artifact,
@@ -268,4 +288,3 @@ pub fn get_env<'a>(
 
     return None;
 }
-

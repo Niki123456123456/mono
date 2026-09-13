@@ -43,6 +43,10 @@ pub fn show_project(
                     }
                 });
 
+                let argocd = deployment.argocd_endpoint().map(|endpoint| {
+                    let application = format!("{}{}", deployment.argocd_prefix().unwrap_or_default(), deployment.name.to_lowercase());
+                    (endpoint, application)
+                });
                 if project.details_open {
                     if deployment.content.is_none() {
                         crate::core::fill_deployment(deployment, config, ui.ctx().clone());
@@ -55,7 +59,17 @@ pub fn show_project(
                                     ui.label("no images / sercets found");
                                 }
                                 for image in content.images.iter_mut() {
-                                    
+                                    if let Some(name) = &image.name {
+                                        ui.horizontal(|ui| {
+                                            ui.strong(name);
+                                            // Disabled until Argo CD login is working.
+                                            // if let Some((endpoint, application)) = &argocd {
+                                            //     if ui.link("logs:argocd").clicked() {
+                                            //         modals.push(show_argocd_logs(endpoint.clone(), application.clone(), name.clone(), ui.ctx().clone()));
+                                            //     }
+                                            // }
+                                        });
+                                    }
                                     let tags: Vec<_> = image.artifact.as_ref()
                                         .map(|artifact| artifact.tags.iter().map(|tag| tag.name.as_str()).collect())
                                         .unwrap_or_else(|| vec![image.identifier.tag.as_str()]);
@@ -267,4 +281,63 @@ pub fn show_text<T: serde::de::DeserializeOwned + serde::Serialize>(ui: &mut Ui,
     });
 
    
+}
+
+fn show_argocd_logs(
+    endpoint: String,
+    application: String,
+    component: String,
+    ctx: egui::Context,
+) -> crate::models::Modal {
+    let application_url = format!("{}/applications/argocd/{}", endpoint.trim_end_matches('/'), urlencoding::encode(&application));
+    let mut promise = load_argocd_pods(endpoint.clone(), application.clone(), false, ctx.clone());
+    let mut filter = component.clone();
+    crate::models::Modal::new(format!("logs:{}:{}", application_url, component), move |ui, _ctx| {
+        ui.heading(format!("Argo CD logs: {}", component));
+        ui.hyperlink_to("Open application in Argo CD", &application_url);
+        ui.horizontal(|ui| {
+            let ready = promise.ready().is_some();
+            if ui.add_enabled(ready, egui::Button::new("Login with SSO")).clicked() {
+                promise = load_argocd_pods(endpoint.clone(), application.clone(), true, ctx.clone());
+            }
+            if ui.add_enabled(ready, egui::Button::new("Refresh")).clicked() {
+                promise = load_argocd_pods(endpoint.clone(), application.clone(), false, ctx.clone());
+            }
+        });
+        match promise.ready() {
+            None => { ui.spinner(); }
+            Some(Err(err)) => { ui.label(err); }
+            Some(Ok(pods)) => {
+                ui.horizontal(|ui| {
+                    ui.label("Pod name filter");
+                    ui.text_edit_singleline(&mut filter);
+                });
+                let matching: Vec<_> = pods.iter().filter(|pod| pod.name.contains(&filter)).collect();
+                if matching.is_empty() {
+                    ui.label("No matching pods. Clear the filter to see all application pods; a CronJob may have no pods between runs.");
+                }
+                for pod in matching {
+                    ui.hyperlink_to(format!("{}/{}", pod.namespace, pod.name), crate::adapters::argocd::logs_url(&application_url, pod));
+                }
+            }
+        }
+    })
+}
+
+fn load_argocd_pods(
+    endpoint: String,
+    application: String,
+    login: bool,
+    ctx: egui::Context,
+) -> poll_promise::Promise<Result<Vec<crate::adapters::argocd::ResourceNode>, String>> {
+    let (sender, promise) = poll_promise::Promise::new();
+    common::execute(async move {
+        let result = (|| {
+            if login { crate::adapters::argocd::login(&endpoint)?; }
+            crate::adapters::argocd::get_pods(&endpoint, &application)
+        })();
+        sender.send(result);
+        ctx.request_repaint();
+    });
+    promise
 }

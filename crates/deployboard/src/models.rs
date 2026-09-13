@@ -122,6 +122,7 @@ pub struct EnvVar {
 
 #[derive( Clone)]
 pub struct Image {
+    pub name: Option<String>,
     pub source_path: crate::yaml::Path,
     pub artifact: Option<crate::adapters::harbor::Artifact>,
     pub artifacts: Vec<crate::adapters::harbor::Artifact>,
