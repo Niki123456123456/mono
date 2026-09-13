@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: deployboard-macos-${{ github.ref }}
@@ -21,18 +21,8 @@ concurrency:
 
 jobs:
   installer:
-    name: Installer (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: apple-silicon
-            runner: macos-15
-            target: aarch64-apple-darwin
-          - arch: intel
-            runner: macos-15-intel
-            target: x86_64-apple-darwin
-    runs-on: ${{ matrix.runner }}
+    name: Installer (Apple Silicon)
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: '13.0'
@@ -42,30 +32,35 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-          rustup target add "${{ matrix.target }}"
+          rustup target add "aarch64-apple-darwin"
       - uses: Swatinem/rust-cache@v2
         with:
-          key: deployboard-${{ matrix.target }}
+          key: deployboard-aarch64-apple-darwin
       - name: Build Deployboard
-        run: cargo build --locked --release --package deployboard --bin deployboard --target "${{ matrix.target }}"
+        run: cargo build --locked --release --package deployboard --bin deployboard --target "aarch64-apple-darwin"
       - name: Create DMG installer
-        run: bash crates/deployboard/package-macos.sh "${{ matrix.target }}" "${{ matrix.arch }}"
-      - name: Upload installer
-        id: upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployboard-macos-${{ matrix.arch }}
-          path: dist/deployboard-macos-${{ matrix.arch }}.dmg
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
-      - name: Add download instructions
+        run: bash crates/deployboard/package-macos.sh "aarch64-apple-darwin" "apple-silicon"
+      - name: Publish installer to GitHub Releases
         env:
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: deployboard-${{ github.run_number }}-${{ github.run_attempt }}
         run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          Deployboard for Apple Silicon (M-series Macs), requiring macOS 13 or later.
+
+          Download `deployboard-macos-apple-silicon.dmg`, open it, and drag Deployboard into Applications.
+
+          This build is ad-hoc signed and is not Apple-notarized. See `crates/deployboard/README.md` for first-launch instructions.
+          NOTES
+          gh release create "$RELEASE_TAG" \
+            dist/deployboard-macos-apple-silicon.dmg \
+            --target "$GITHUB_SHA" \
+            --title "Deployboard Apple Silicon build $GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+          release_url="$(gh release view "$RELEASE_TAG" --json url --jq .url)"
           {
-            echo "### Deployboard for ${{ matrix.arch }}"
-            echo "[Download installer]($ARTIFACT_URL) (retained for 30 days)."
-            echo "Unzip the download, open the DMG, and drag deployboard into Applications."
-            echo "Requires macOS 13 or later. This build is ad-hoc signed and is not Apple-notarized; see crates/deployboard/README.md for first-launch instructions."
+            echo "### Deployboard for Apple Silicon"
+            echo "[Download installer from GitHub Releases]($release_url)."
+            echo "Open the DMG and drag Deployboard into Applications."
           } >> "$GITHUB_STEP_SUMMARY"

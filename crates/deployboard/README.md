@@ -8,11 +8,12 @@ must first be committed to the repository's default branch.
 
 ## Download and install
 
-1. Open the completed workflow run in GitHub Actions.
-2. Under **Artifacts**, download `deployboard-macos-apple-silicon` for an M-series
-   Mac or `deployboard-macos-intel` for an Intel Mac. GitHub requires you to be
-   signed in to download artifacts; downloads are retained for 30 days.
-3. Unzip the download and open the `.dmg` file.
+Each successful run publishes a new GitHub Release tagged
+`deployboard-<run-number>-<run-attempt>`, containing the Apple Silicon installer.
+
+1. Open the repository's **Releases** page and select the Deployboard build.
+2. Under **Assets**, download `deployboard-macos-apple-silicon.dmg` for your M-series Mac.
+3. Open the `.dmg` file.
 4. Drag `deployboard.app` onto the **Applications** shortcut, then eject the disk image.
 5. Open Deployboard from Applications. Requires macOS 13 or later.
 
@@ -33,4 +34,3 @@ bash crates/deployboard/package-macos.sh aarch64-apple-darwin apple-silicon
 ```
 
 The installer is written to `dist/deployboard-macos-apple-silicon.dmg`.
-For Intel, substitute `x86_64-apple-darwin` and `intel`.
