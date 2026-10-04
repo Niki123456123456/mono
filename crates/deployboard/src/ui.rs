@@ -12,6 +12,33 @@ pub fn show_project(
     if !search.is_empty() && !project.name.contains(search) {
         return;
     }
+    let compare_images = project.deployments_by_env.contains_key("int")
+        && project.deployments_by_env.contains_key("prod");
+    if compare_images {
+        for env in ["int", "prod"] {
+            let deployment = project.deployments_by_env.get_mut(env).unwrap();
+            if deployment.content.is_none() {
+                crate::core::fill_deployment(deployment, config, ui.ctx().clone());
+            }
+        }
+    }
+    let image_references = |env: &str| -> Option<Vec<String>> {
+        let content = project.deployments_by_env.get(env)?.content.as_ref()?.ready()?;
+        let yaml = serde_yaml::from_str::<serde_yaml::Value>(&content.raw).ok()?;
+        let mut images: Vec<_> = crate::yaml::get_fields(
+            &yaml,
+            config.gitlab.image_path.as_str(),
+            Default::default(),
+        )
+        .into_iter()
+        .filter_map(|field| crate::yaml::as_string(field.value))
+        .collect();
+        images.sort();
+        Some(images)
+    };
+    let prod_images_differ = image_references("int")
+        .zip(image_references("prod"))
+        .is_some_and(|(int, prod)| int != prod);
     if project.details_open {
         crate::ui_bulk_images::show(project, config, ui, modals);
     }
@@ -28,7 +55,12 @@ pub fn show_project(
                     {
                         project.details_open = !project.details_open;
                     }
-                    ui.label(&project.name);
+                    if env == "prod" && prod_images_differ {
+                        ui.colored_label(egui::Color32::YELLOW, &project.name)
+                            .on_hover_text("Production images differ from int");
+                    } else {
+                        ui.label(&project.name);
+                    }
                     if let Some(git_project) = &deployment.git_project {
                         ui.hyperlink_to(
                             "src",
