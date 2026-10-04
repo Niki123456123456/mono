@@ -34,3 +34,11 @@ bash crates/deployboard/package-macos.sh aarch64-apple-darwin apple-silicon
 ```
 
 The installer is written to `dist/deployboard-macos-apple-silicon.dmg`.
+
+## Vault login
+
+Deployboard uses the installed Vault CLI for OIDC login. Install it separately
+and configure the Vault endpoint in Deployboard's settings. When launched from
+Finder, Deployboard also searches `/opt/homebrew/bin` (Apple Silicon) and
+`/usr/local/bin` (Intel) for the CLI, since Finder's `PATH` can differ from your
+terminal's. Login failures are displayed in the app.

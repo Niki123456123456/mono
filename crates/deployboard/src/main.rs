@@ -69,12 +69,12 @@ impl App {
     }
 
     pub fn reload(&mut self, vault: bool) {
-        if vault {
-            if let Ok(token) =
-                crate::adapters::vault::get_token(&self.config.vault.connection.endpoint)
-            {
-                let t = &mut self.config.vault.connection.token;
-                *t = token;
+        if vault && !self.config.vault.connection.endpoint.trim().is_empty() {
+            match crate::adapters::vault::get_token(&self.config.vault.connection.endpoint) {
+                Ok(token) => self.config.vault.connection.token = token,
+                Err(error) => {
+                    self.toasts.error(error);
+                }
             }
         }
         let config = self.config.clone();
