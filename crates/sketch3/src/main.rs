@@ -273,12 +273,12 @@ fn main2() {
 
         let mut selected_part: Option<SelectedPart> = None;
 
-        let mut key = "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string();
+        let mut key = String::new();
         let mut search = "".to_string();
 
         let mut search_promise = None;
 
-        let mut tile_cache = TileCache::new(&c.ctx, key.clone());
+        let mut tile_cache: Option<TileCache> = None;
 
         let mut shown_tiles = 0;
 
@@ -287,16 +287,18 @@ fn main2() {
 
             let ctx3d = ctx.frame_input.context.clone();
 
-            tile_cache.load(&ctx3d);
+            if let Some(tile_cache) = &mut tile_cache {
+                tile_cache.load(&ctx3d);
+            }
 
             ctx.update_ui(|egui_ctx| {
                 use three_d::egui::*;
                 SidePanel::left("side_panel").show(egui_ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.label("api key");
-                        egui::TextEdit::singleline(&mut key).show(ui);
-                        if ui.button("run").clicked() {
-                            // tile_cache.set_client(key.clone());
+                        egui::TextEdit::singleline(&mut key).password(true).show(ui);
+                        if ui.add_enabled(!key.trim().is_empty(), egui::Button::new("run")).clicked() {
+                            tile_cache = Some(TileCache::new(&ctx3d, key.trim().to_owned()));
                         }
                     });
 
@@ -388,7 +390,7 @@ fn main2() {
                     y_line.render_with_material(&green, &camera, &[&light]);
                     z_line.render_with_material(&blue, &camera, &[&light]);
 
-                    shown_tiles = tile_cache.render(&camera, &[&light]);
+                    shown_tiles = tile_cache.as_mut().map_or(0, |cache| cache.render(&camera, &[&light]));
 
                     if let Some(selected_part) = &selected_part {
                         unsafe {
@@ -1385,10 +1387,9 @@ pub fn main() {
             ),
         );
 
-        let mut tile_cache = maps::TileCache::new(
-            &context,
-            "AIzaSyBIXRsd8edAP6xU5LGwWVeqi6wVrt0et_4".to_string(),
-        );
+        // Supply the Google API key at runtime; never embed it in source or builds.
+        let mut key = String::new();
+        let mut tile_cache: Option<TileCache> = None;
 
         let max_distane = 50_000_000.;
 
@@ -1448,6 +1449,13 @@ pub fn main() {
         );
 
         return Box::new(move |mut ctx| {
+            ctx.ui.horizontal(|ui| {
+                ui.label("Google API key");
+                ::egui::TextEdit::singleline(&mut key).password(true).show(ui);
+                if ui.add_enabled(!key.trim().is_empty(), ::egui::Button::new("Load map")).clicked() {
+                    tile_cache = Some(TileCache::new(&context, key.trim().to_owned()));
+                }
+            });
             let size = (&ctx.ui).available_size_before_wrap();
 
             threed_view::show("main", ctx.ui, ctx.frame, size, |context, viewport| {
@@ -1455,8 +1463,10 @@ pub fn main() {
                 y_line.render(&camera, &[&light]);
                 z_line.render(&camera, &[&light]);
                 camera.set_viewport(viewport);
-                tile_cache.load(context);
-                tile_cache.render(&camera, &[&light]);
+                if let Some(tile_cache) = &mut tile_cache {
+                    tile_cache.load(context);
+                    tile_cache.render(&camera, &[&light]);
+                }
                 //cube.render(&camera, &[&light]);
             });
         });
